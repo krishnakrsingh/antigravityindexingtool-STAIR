@@ -49,4 +49,11 @@ fn test_merkle_tree_construction_and_diff() {
     let diff3 = tree.refresh();
     assert_eq!(diff3.deleted_files.len(), 1);
     assert!(diff3.deleted_files[0].contains("b.rs"));
+
+    // Microsecond update of a single file
+    fs::write(&file_c, "pub enum Status { Active, Idle, Terminated }\n").unwrap();
+    let diff_single = tree.update_single_file("src/c.rs").expect("Failed single file update");
+    assert_eq!(diff_single.modified_files.len(), 1);
+    assert!(diff_single.modified_files[0].contains("c.rs"));
+    assert!(diff_single.duration_micros < 50_000); // verify microsecond speed
 }

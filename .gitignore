@@ -1,3 +1,8 @@
 /target
 /.antigravity
+/benchmark_50k_repo
+/benchmark_workspaces
+/target_repo
+/graphify-out
+**/__pycache__
 **/*.rs.bk

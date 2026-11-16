@@ -5,7 +5,7 @@ mod mcp;
 mod merkle;
 mod stair;
 
-use bench::BenchmarkRunner;
+use bench::{BenchmarkRunner, Scalability50kRunner};
 use clap::Parser;
 use crepe::{CrepeIndex, Verifier};
 use merkle::MerkleTree;
@@ -27,6 +27,10 @@ struct Cli {
     /// Run empirical benchmarks comparing against PowerShell/Select-String baseline
     #[arg(short, long)]
     benchmark: bool,
+
+    /// Run massive 50,000-file empirical scalability benchmark (generates or benchmarks 50k repo)
+    #[arg(long)]
+    benchmark_50k: bool,
 
     /// Force rebuilding Crepe sparse n-gram index
     #[arg(long)]
@@ -63,6 +67,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let report_path = workspace.join("BENCHMARK_RESULTS.md");
         fs::write(&report_path, &report.summary_markdown)?;
         println!("Benchmark report saved to: {:?}", report_path);
+        return Ok(());
+    }
+
+    if cli.benchmark_50k {
+        let bench_dir = workspace.join("benchmark_50k_repo");
+        let runner = Scalability50kRunner::new(bench_dir);
+        let report = runner.run_suite();
+        let report_path = workspace.join("BENCHMARK_50K_REPORT.md");
+        fs::write(&report_path, &report.markdown_summary)?;
+        println!("50,000-File Scalability Benchmark report saved to: {:?}", report_path);
         return Ok(());
     }
 

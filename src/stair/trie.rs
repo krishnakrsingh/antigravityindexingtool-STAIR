@@ -1,5 +1,6 @@
 use super::ast::{AstOutlineParser, CodeSymbol, SymbolKind};
 use ignore::WalkBuilder;
+use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
@@ -17,6 +18,8 @@ pub struct SymbolEntry {
     pub line_end: usize,
     pub byte_start: usize,
     pub byte_end: usize,
+    #[serde(default)]
+    pub decorators: Vec<String>,
 }
 
 #[derive(Default)]
@@ -53,56 +56,66 @@ impl SymbolTrie {
                 name != ".git" && name != "target" && name != "node_modules" && name != ".antigravity"
             });
 
+        let file_paths: Vec<PathBuf> = walker
+            .build()
+            .filter_map(|res| res.ok())
+            .map(|entry| entry.into_path())
+            .filter(|p| p.is_file())
+            .collect();
+
+        let parsed: Vec<(String, Vec<CodeSymbol>)> = file_paths
+            .par_iter()
+            .filter_map(|p| {
+                let rel = p.strip_prefix(&self.workspace_root).ok()?;
+                let rel_str = rel.to_string_lossy().replace('\\', "/");
+                let content = fs::read_to_string(p).ok()?;
+                let symbols = AstOutlineParser::parse_file(p, &content);
+                if symbols.is_empty() {
+                    None
+                } else {
+                    Some((rel_str, symbols))
+                }
+            })
+            .collect();
+
         let mut count = 0;
         let mut trie_root = TrieNode::default();
-        let mut symbols_by_path = HashMap::new();
-        let mut file_symbols = HashMap::new();
+        let mut symbols_by_path = HashMap::with_capacity(parsed.len() * 3);
+        let mut file_symbols = HashMap::with_capacity(parsed.len());
 
-        for res in walker.build() {
-            if let Ok(entry) = res {
-                let p = entry.path();
-                if p.is_file() {
-                    if let Ok(rel) = p.strip_prefix(&self.workspace_root) {
-                        let rel_str = rel.to_string_lossy().replace('\\', "/");
-                        if let Ok(content) = fs::read_to_string(p) {
-                            let symbols = AstOutlineParser::parse_file(p, &content);
-                            if !symbols.is_empty() {
-                                for sym in &symbols {
-                                    let sym_path = format!("{}::{}", rel_str, sym.name);
-                                    let entry = SymbolEntry {
-                                        symbol_path: sym_path.clone(),
-                                        file_path: rel_str.clone(),
-                                        name: sym.name.clone(),
-                                        kind: sym.kind,
-                                        signature: sym.signature.clone(),
-                                        line_start: sym.line_start,
-                                        line_end: sym.line_end,
-                                        byte_start: sym.byte_start,
-                                        byte_end: sym.byte_end,
-                                    };
+        for (rel_str, symbols) in parsed {
+            for sym in &symbols {
+                let sym_path = format!("{}::{}", rel_str, sym.name);
+                let entry = SymbolEntry {
+                    symbol_path: sym_path.clone(),
+                    file_path: rel_str.clone(),
+                    name: sym.name.clone(),
+                    kind: sym.kind,
+                    signature: sym.signature.clone(),
+                    line_start: sym.line_start,
+                    line_end: sym.line_end,
+                    byte_start: sym.byte_start,
+                    byte_end: sym.byte_end,
+                    decorators: sym.decorators.clone(),
+                };
 
-                                    Self::insert_in_node(&mut trie_root, &sym_path, entry.clone());
-                                    symbols_by_path.insert(sym_path.clone(), entry.clone());
+                Self::insert_in_node(&mut trie_root, &sym_path, entry.clone());
+                symbols_by_path.insert(sym_path.clone(), entry.clone());
 
-                                    // If name is Type::method (e.g. CrepeIndex::find_candidates), also alias file::method
-                                    if sym.name.contains("::") {
-                                        let method_part = sym.name.split("::").last().unwrap_or(&sym.name);
-                                        let short_path = format!("{}::{}", rel_str, method_part);
-                                        symbols_by_path.entry(short_path.clone()).or_insert_with(|| {
-                                            let mut short_entry = entry.clone();
-                                            short_entry.symbol_path = short_path;
-                                            short_entry
-                                        });
-                                    }
-
-                                    count += 1;
-                                }
-                                file_symbols.insert(rel_str, symbols);
-                            }
-                        }
-                    }
+                // If name is Type::method (e.g. CrepeIndex::find_candidates), also alias file::method
+                if sym.name.contains("::") {
+                    let method_part = sym.name.split("::").last().unwrap_or(&sym.name);
+                    let short_path = format!("{}::{}", rel_str, method_part);
+                    symbols_by_path.entry(short_path.clone()).or_insert_with(|| {
+                        let mut short_entry = entry.clone();
+                        short_entry.symbol_path = short_path;
+                        short_entry
+                    });
                 }
+
+                count += 1;
             }
+            file_symbols.insert(rel_str, symbols);
         }
 
         *self.root.write().unwrap() = trie_root;
@@ -155,17 +168,17 @@ impl SymbolTrie {
         let abs_path = self.workspace_root.join(&entry.file_path);
         let content = fs::read_to_string(abs_path).ok()?;
 
-        if entry.byte_end > entry.byte_start && entry.byte_end <= content.len() {
-            let code_slice = content[entry.byte_start..entry.byte_end].to_string();
-            Some((entry, code_slice))
-        } else {
-            // Fallback to line range
-            let lines: Vec<&str> = content.lines().collect();
-            let start_idx = entry.line_start.saturating_sub(1);
-            let end_idx = entry.line_end.min(lines.len());
-            let slice = lines[start_idx..end_idx].join("\n");
-            Some((entry, slice))
+        if entry.byte_end > entry.byte_start {
+            if let Some(code_slice) = content.get(entry.byte_start..entry.byte_end) {
+                return Some((entry, code_slice.to_string()));
+            }
         }
+        // Fallback to line range
+        let lines: Vec<&str> = content.lines().collect();
+        let start_idx = entry.line_start.saturating_sub(1);
+        let end_idx = entry.line_end.min(lines.len());
+        let slice = lines[start_idx..end_idx].join("\n");
+        Some((entry, slice))
     }
 
     /// Returns Code Table of Contents outline for a file or directory
