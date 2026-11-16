@@ -17,6 +17,7 @@ impl FileWatcher {
         }
     }
 
+    #[allow(dead_code)]
     pub fn tree(&self) -> Arc<MerkleTree> {
         self.merkle_tree.clone()
     }
@@ -25,11 +26,13 @@ impl FileWatcher {
         self.merkle_tree.get_snapshot()
     }
 
+    #[allow(dead_code)]
     pub fn mark_dirty(&self, rel_path: &str) {
         let mut dirty = self.dirty_files.lock().unwrap();
         dirty.insert(rel_path.replace('\\', "/"));
     }
 
+    #[allow(dead_code)]
     pub fn take_dirty_files(&self) -> Vec<String> {
         let mut dirty = self.dirty_files.lock().unwrap();
         let list: Vec<String> = dirty.iter().cloned().collect();

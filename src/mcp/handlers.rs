@@ -9,6 +9,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 pub struct McpHandler {
+    #[allow(dead_code)]
     pub workspace_root: PathBuf,
     watcher: Arc<FileWatcher>,
     crepe: Arc<CrepeIndex>,
@@ -25,8 +26,10 @@ impl McpHandler {
         let trie = Arc::new(SymbolTrie::new(workspace_root.clone()));
         let semantic = Arc::new(LocalSemanticIndex::new());
 
-        // Initial index build if needed
-        let _ = crepe.build();
+        // Initial index build only if index not already loaded from disk
+        if crepe.total_files() == 0 {
+            let _ = crepe.build();
+        }
         let _sym_count = trie.build();
 
         // Populate local semantic index with symbols
@@ -81,7 +84,7 @@ impl McpHandler {
                 input_schema: json!({
                     "type": "object",
                     "properties": {
-                        "symbol_path": { "type": "string", "description": "Hierarchical symbol path, e.g. 'src/merkle/tree.rs::MerkleTree'" }
+                        "symbol_path": { "type": "string", "description": "Hierarchical symbol path, e.g. 'src/merkle/tree.rs::MerkleTree' or 'src/crepe/index.rs::CrepeIndex::find_candidates'" }
                     },
                     "required": ["symbol_path"]
                 }),
@@ -171,7 +174,8 @@ impl McpHandler {
         let mut candidates = self.crepe.find_candidates(pattern);
 
         if let Some(filter) = path_filter {
-            candidates.retain(|c| c.contains(filter));
+            let norm_filter = filter.replace('\\', "/");
+            candidates.retain(|c| c.contains(&norm_filter));
         }
         let candidate_time_micros = candidate_t0.elapsed().as_micros();
 
@@ -326,7 +330,14 @@ impl McpHandler {
                 }
             }
         } else {
-            self.watcher.sync_and_diff()
+            let d = self.watcher.sync_and_diff();
+            for f in &d.added_files {
+                self.crepe.mark_dirty(f);
+            }
+            for f in &d.modified_files {
+                self.crepe.mark_dirty(f);
+            }
+            d
         };
 
         let json_diff = serde_json::to_string_pretty(&diff).unwrap_or_default();

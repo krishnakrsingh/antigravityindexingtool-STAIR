@@ -82,7 +82,19 @@ impl SymbolTrie {
                                     };
 
                                     Self::insert_in_node(&mut trie_root, &sym_path, entry.clone());
-                                    symbols_by_path.insert(sym_path, entry);
+                                    symbols_by_path.insert(sym_path.clone(), entry.clone());
+
+                                    // If name is Type::method (e.g. CrepeIndex::find_candidates), also alias file::method
+                                    if sym.name.contains("::") {
+                                        let method_part = sym.name.split("::").last().unwrap_or(&sym.name);
+                                        let short_path = format!("{}::{}", rel_str, method_part);
+                                        symbols_by_path.entry(short_path.clone()).or_insert_with(|| {
+                                            let mut short_entry = entry.clone();
+                                            short_entry.symbol_path = short_path;
+                                            short_entry
+                                        });
+                                    }
+
                                     count += 1;
                                 }
                                 file_symbols.insert(rel_str, symbols);
@@ -112,14 +124,27 @@ impl SymbolTrie {
     /// Exact symbol path lookup (0.00% hallucination guarantee)
     pub fn find_exact(&self, symbol_path: &str) -> Option<SymbolEntry> {
         let map = self.symbols_by_path.read().unwrap();
-        map.get(symbol_path).cloned()
+        let normalized = symbol_path.replace('\\', "/");
+        if let Some(entry) = map.get(&normalized) {
+            return Some(entry.clone());
+        }
+
+        // Try matching if user passed short name or suffix
+        for (k, v) in map.iter() {
+            if k.ends_with(&format!("::{}", normalized)) || k == &normalized {
+                return Some(v.clone());
+            }
+        }
+
+        None
     }
 
     /// Prefix search on symbol path
     pub fn find_by_prefix(&self, prefix: &str) -> Vec<SymbolEntry> {
         let map = self.symbols_by_path.read().unwrap();
+        let norm = prefix.replace('\\', "/");
         map.iter()
-            .filter(|(k, _)| k.starts_with(prefix) || k.contains(prefix))
+            .filter(|(k, _)| k.starts_with(&norm) || k.contains(&norm))
             .map(|(_, v)| v.clone())
             .collect()
     }
@@ -150,7 +175,8 @@ impl SymbolTrie {
 
         for (file, symbols) in file_symbols.iter() {
             if let Some(filter) = path_filter {
-                if !file.contains(filter) {
+                let norm_filter = filter.replace('\\', "/");
+                if !file.contains(&norm_filter) {
                     continue;
                 }
             }

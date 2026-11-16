@@ -22,17 +22,50 @@ impl LocalSemanticIndex {
         }
     }
 
-    /// Hashes subwords and character 3-grams into feature IDs
+    /// Hashes subwords and character 3-grams into feature IDs with camelCase and snake_case awareness
     fn vectorize(text: &str) -> HashMap<u32, f32> {
         let mut tf = HashMap::new();
+
+        // 1. Split on camelCase boundaries and non-alphanumeric chars
+        let mut tokens = Vec::new();
+        let mut current_token = String::new();
+        let chars: Vec<char> = text.chars().collect();
+
+        for i in 0..chars.len() {
+            let c = chars[i];
+            if c.is_alphanumeric() {
+                if c.is_uppercase() && !current_token.is_empty() && (i + 1 < chars.len() && chars[i + 1].is_lowercase()) {
+                    tokens.push(current_token.to_lowercase());
+                    current_token.clear();
+                }
+                current_token.push(c);
+            } else {
+                if !current_token.is_empty() {
+                    tokens.push(current_token.to_lowercase());
+                    current_token.clear();
+                }
+            }
+        }
+        if !current_token.is_empty() {
+            tokens.push(current_token.to_lowercase());
+        }
+
+        // 2. Also add full identifier words from lowercased text
         let lower = text.to_lowercase();
-        let words: Vec<&str> = lower
+        let raw_words: Vec<&str> = lower
             .split(|c: char| !c.is_alphanumeric() && c != '_')
             .filter(|w| !w.is_empty())
             .collect();
 
-        for w in &words {
-            // Word hash
+        for w in &raw_words {
+            tokens.push(w.to_string());
+        }
+
+        for w in &tokens {
+            if w.is_empty() {
+                continue;
+            }
+            // Word hash weight
             let h = Self::hash_term(w);
             *tf.entry(h).or_insert(0.0) += 2.0;
 
@@ -102,7 +135,7 @@ impl LocalSemanticIndex {
                 }
             }
 
-            if dot_product > 0.05 {
+            if dot_product > 0.03 {
                 scored.push(SemanticMatch {
                     symbol_path: path.clone(),
                     signature: sig.clone(),

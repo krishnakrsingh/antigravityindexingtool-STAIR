@@ -15,6 +15,7 @@ pub struct SearchMatch {
     pub line_content: String,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SearchResult {
     pub pattern: String,
@@ -56,43 +57,68 @@ impl Verifier {
             return Err(format!("Bundled ripgrep not found at {:?}", self.rg_path));
         }
 
-        let mut cmd = Command::new(&self.rg_path);
-        cmd.current_dir(&self.workspace_root)
-            .arg("--line-number")
-            .arg("--column")
-            .arg("--no-heading")
-            .arg("--color")
-            .arg("never");
-
-        if !case_sensitive {
-            cmd.arg("-i");
-        }
-
-        cmd.arg("-e").arg(pattern);
-
-        // Pass candidate files directly
-        for cand in candidates {
-            cmd.arg(cand);
-        }
-
-        let output = cmd.output().map_err(|e| e.to_string())?;
-        let stdout = String::from_utf8_lossy(&output.stdout);
-
         let mut matches = Vec::new();
-        for line in stdout.lines() {
-            let parts: Vec<&str> = line.splitn(4, ':').collect();
-            if parts.len() >= 4 {
-                let file = parts[0].replace('\\', "/");
-                let line_number = parts[1].parse::<usize>().unwrap_or(0);
-                let column = parts[2].parse::<usize>().unwrap_or(0);
-                let line_content = parts[3].to_string();
+        // Chunk candidates to avoid Windows 8191 character command line overflow
+        let chunk_size = 25;
 
-                matches.push(SearchMatch {
-                    file,
-                    line_number,
-                    column,
-                    line_content,
-                });
+        for chunk in candidates.chunks(chunk_size) {
+            let mut cmd = Command::new(&self.rg_path);
+            cmd.current_dir(&self.workspace_root)
+                .arg("--line-number")
+                .arg("--column")
+                .arg("--no-heading")
+                .arg("--color")
+                .arg("never");
+
+            if !case_sensitive {
+                cmd.arg("-i");
+            }
+
+            cmd.arg("-e").arg(pattern);
+
+            for cand in chunk {
+                cmd.arg(cand);
+            }
+
+            let output = cmd.output().map_err(|e| e.to_string())?;
+            let stdout = String::from_utf8_lossy(&output.stdout);
+
+            for line in stdout.lines() {
+                let parts: Vec<&str> = line.split(':').collect();
+                if parts.len() >= 4 {
+                    let (file, line_str, col_str, content) = if parts[0].len() == 1
+                        && parts.get(1).map_or(false, |p| p.starts_with('\\') || p.starts_with('/'))
+                    {
+                        // Windows drive prefix e.g. C:\path\to\file.rs:10:5:code
+                        let full_file = format!("{}:{}", parts[0], parts[1]);
+                        let l = parts.get(2).copied().unwrap_or("0");
+                        let c = parts.get(3).copied().unwrap_or("0");
+                        let rest = parts[4..].join(":");
+                        (full_file, l, c, rest)
+                    } else {
+                        let full_file = parts[0].to_string();
+                        let l = parts.get(1).copied().unwrap_or("0");
+                        let c = parts.get(2).copied().unwrap_or("0");
+                        let rest = parts[3..].join(":");
+                        (full_file, l, c, rest)
+                    };
+
+                    let rel_file = if let Ok(rel) = PathBuf::from(&file).strip_prefix(&self.workspace_root) {
+                        rel.to_string_lossy().replace('\\', "/")
+                    } else {
+                        file.replace('\\', "/")
+                    };
+
+                    let line_number = line_str.parse::<usize>().unwrap_or(0);
+                    let column = col_str.parse::<usize>().unwrap_or(0);
+
+                    matches.push(SearchMatch {
+                        file: rel_file,
+                        line_number,
+                        column,
+                        line_content: content,
+                    });
+                }
             }
         }
 
