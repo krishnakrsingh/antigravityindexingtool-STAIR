@@ -141,8 +141,10 @@ pub fn run_setup() -> Result<(), Box<dyn std::error::Error>> {
     let global_rules_dir = gemini_dir.join("config").join("rules");
     let redundant_guardrail = global_rules_dir.join("execution-guardrails.md");
     let redundant_paging = global_rules_dir.join("no-file-paging.md");
+    let redundant_direct_action = global_rules_dir.join("direct-action.md");
     let _ = fs::remove_file(redundant_guardrail);
     let _ = fs::remove_file(redundant_paging);
+    let _ = fs::remove_file(redundant_direct_action);
     println!("  ✅ Deduplicated rules (plugin rules is single source of truth, global duplicates purged).");
 
     // Configure Antigravity SessionStart lifecycle hook in plugin root (hooks.json)
