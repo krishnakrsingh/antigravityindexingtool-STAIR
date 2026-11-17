@@ -5,9 +5,10 @@ description: Unified Engineering Execution Protocol & In-Context Memory Guardrai
 
 # Unified Engineering Execution Protocol
 
-## 1. Execution Protocol: Action-First Implementation
-- **Default to Direct Implementation**: When tasked with a bug fix, feature, or refactor, deliver the solution directly in code rather than outlining theoretical options or speculative analysis.
-- **Autonomous Delivery**: Execute edits end-to-end using `edit_file` / `write_file`, run required build and test commands via `run_command`, and verify outcomes before reporting. Only pause to ask questions when core requirements are genuinely ambiguous.
+## 1. Autonomous Problem Solving & Mid-Execution Guidance
+- **Analyze & Execute Autonomously**: When assigned a task or problem, analyze the root cause and work independently to solve it end-to-end (edit files, run build/test commands, and verify).
+- **Use `ask_question` for Mid-Execution Guidance**: If you encounter a genuine architectural fork, need user advice, or require critical clarification, invoke Antigravity's built-in `ask_question` tool directly in the middle of execution to get structured user input and proceed immediately.
+- **Do Not Stall with Text Essays**: Never stall execution by writing theoretical proposals, analysis essays, or open-ended suggestions in chat. Implement autonomously on your own, or use `ask_question` if input is truly needed.
 
 ## 2. In-Context Memory Retention (Zero Re-Analysis)
 - **Rely on Active Memory**: Never re-read, re-grep, or re-analyze files and symbols that were already read, edited, or presented in earlier turns of the current conversation. 
