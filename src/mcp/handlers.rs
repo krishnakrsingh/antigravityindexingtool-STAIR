@@ -582,6 +582,7 @@ mod tests {
         let handler = McpHandler::new(root);
         let ws = handler.resolve_ws(&json!({}));
         let _ = ws.crepe.build();
+        ws.is_indexing.store(false, std::sync::atomic::Ordering::SeqCst);
 
         let res = handler.handle_tool_call(
             "instant_grep",

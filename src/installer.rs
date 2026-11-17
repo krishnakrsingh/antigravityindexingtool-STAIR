@@ -119,15 +119,11 @@ pub fn run_setup() -> Result<(), Box<dyn std::error::Error>> {
         println!("  ✅ Synced global Antigravity config: {:?}", mcp_config_path);
     }
 
-    // Write SKILL.md into ~/.gemini/config/plugins/fast-code-intelligence/skills/fast-code-intelligence/
-    let skill_dir = plugin_dir.join("skills").join("fast-code-intelligence");
-    fs::create_dir_all(&skill_dir)?;
-    let skill_path = skill_dir.join("SKILL.md");
-    let skill_content = include_str!("../skills/fast-code-intelligence/SKILL.md");
-    fs::write(&skill_path, skill_content)?;
-    println!("  ✅ Synced Antigravity Skill: {:?}", skill_path);
+    // Clean up any legacy skills from plugin directory (zero skill bloat)
+    let plugin_skills_dir = plugin_dir.join("skills");
+    let _ = fs::remove_dir_all(&plugin_skills_dir);
 
-    // Write execution-guardrails.md into plugin rules (single source of truth)
+    // Write execution-guardrails.md as the SINGLE unified rule
     let guardrails_content = include_str!("../rules/execution-guardrails.md");
     let plugin_rules_dir = plugin_dir.join("rules");
     fs::create_dir_all(&plugin_rules_dir)?;
@@ -135,17 +131,15 @@ pub fn run_setup() -> Result<(), Box<dyn std::error::Error>> {
     fs::write(&plugin_guardrail_path, guardrails_content)?;
     let plugin_paging_path = plugin_rules_dir.join("no-file-paging.md");
     let _ = fs::remove_file(plugin_paging_path);
-    println!("  ✅ Synced Plugin Execution Guardrail: {:?}", plugin_guardrail_path);
+    println!("  ✅ Synced Single Unified Execution Guardrail: {:?}", plugin_guardrail_path);
 
-    // Deduplicate rules: Clean up redundant copies in ~/.gemini/config/rules/ so Antigravity doesn't inject twice
+    // Deduplicate rules: Clean up all global rules so execution-guardrails is the ONLY markdown rule
     let global_rules_dir = gemini_dir.join("config").join("rules");
-    let redundant_guardrail = global_rules_dir.join("execution-guardrails.md");
-    let redundant_paging = global_rules_dir.join("no-file-paging.md");
-    let redundant_direct_action = global_rules_dir.join("direct-action.md");
-    let _ = fs::remove_file(redundant_guardrail);
-    let _ = fs::remove_file(redundant_paging);
-    let _ = fs::remove_file(redundant_direct_action);
-    println!("  ✅ Deduplicated rules (plugin rules is single source of truth, global duplicates purged).");
+    let _ = fs::remove_file(global_rules_dir.join("execution-guardrails.md"));
+    let _ = fs::remove_file(global_rules_dir.join("no-file-paging.md"));
+    let _ = fs::remove_file(global_rules_dir.join("direct-action.md"));
+    let _ = fs::remove_file(global_rules_dir.join("git-workflow.md"));
+    println!("  ✅ Deduplicated rules (single unified rule in plugin, all global rules purged).");
 
     // Configure Antigravity SessionStart lifecycle hook in plugin root (hooks.json)
     let hooks_json_path = plugin_dir.join("hooks.json");
@@ -191,11 +185,9 @@ pub fn run_setup() -> Result<(), Box<dyn std::error::Error>> {
         println!("  ✅ Synced MCP tool schema: {}.json", tool.name);
     }
 
-    // Write instructions.md into ~/.gemini/antigravity/mcp/fast-core/
+    // Clean up instructions.md from mcp_schemas_dir (single unified rule governs execution)
     let instructions_path = mcp_schemas_dir.join("instructions.md");
-    let instructions_content = include_str!("../resources/instructions.md");
-    fs::write(&instructions_path, instructions_content)?;
-    println!("  ✅ Synced MCP Instructions: {:?}", instructions_path);
+    let _ = fs::remove_file(instructions_path);
 
     // 4. Third-Party Integration: Claude Desktop
     println!("\n[4/4] Checking third-party IDE configurations...");
