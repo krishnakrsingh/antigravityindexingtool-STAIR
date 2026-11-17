@@ -4,8 +4,56 @@ use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
 
-pub const DEFAULT_BUNDLED_RG: &str =
-    r#"C:\Users\krish\AppData\Local\Programs\Antigravity IDE\resources\app\node_modules\@vscode\ripgrep\bin\rg.exe"#;
+pub fn find_best_rg_path() -> PathBuf {
+    if let Ok(p) = std::env::var("RG_PATH") {
+        let pb = PathBuf::from(p);
+        if pb.exists() {
+            return pb;
+        }
+    }
+    // Check local Antigravity IDE bundled ripgrep
+    if let Ok(local_app) = std::env::var("LOCALAPPDATA") {
+        let p = PathBuf::from(&local_app)
+            .join("Programs")
+            .join("Antigravity IDE")
+            .join("resources")
+            .join("app")
+            .join("node_modules")
+            .join("@vscode")
+            .join("ripgrep")
+            .join("bin")
+            .join(if cfg!(windows) { "rg.exe" } else { "rg" });
+        if p.exists() {
+            return p;
+        }
+
+        // Check local VS Code bundled ripgrep as secondary fallback
+        let vscode_p = PathBuf::from(&local_app)
+            .join("Programs")
+            .join("Microsoft VS Code")
+            .join("resources")
+            .join("app")
+            .join("node_modules")
+            .join("@vscode")
+            .join("ripgrep")
+            .join("bin")
+            .join(if cfg!(windows) { "rg.exe" } else { "rg" });
+        if vscode_p.exists() {
+            return vscode_p;
+        }
+    }
+    // Check system PATH
+    if let Ok(path_var) = std::env::var("PATH") {
+        for dir in std::env::split_paths(&path_var) {
+            let exe = if cfg!(windows) { dir.join("rg.exe") } else { dir.join("rg") };
+            if exe.exists() {
+                return exe;
+            }
+        }
+    }
+    // Default system executable name
+    PathBuf::from(if cfg!(windows) { "rg.exe" } else { "rg" })
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SearchMatch {
@@ -33,13 +81,81 @@ pub struct Verifier {
 
 impl Verifier {
     pub fn new(workspace_root: PathBuf) -> Self {
-        let rg_path = std::env::var("RG_PATH")
-            .map(PathBuf::from)
-            .unwrap_or_else(|_| PathBuf::from(DEFAULT_BUNDLED_RG));
+        let rg_path = find_best_rg_path();
         Self {
             workspace_root,
             rg_path,
         }
+    }
+
+    /// Direct whole-workspace ripgrep search for cold starts and background warmup
+    pub fn search_workspace_ripgrep(
+        &self,
+        pattern: &str,
+        path_filter: Option<&str>,
+        case_sensitive: bool,
+        max_results: usize,
+    ) -> Result<Vec<SearchMatch>, String> {
+        if !self.rg_path.exists() {
+            return Err("Ripgrep binary not found".to_string());
+        }
+
+        let mut cmd = Command::new(&self.rg_path);
+        cmd.arg("--vimgrep")
+            .arg("--no-heading")
+            .arg("--color")
+            .arg("never")
+            .arg("--max-count")
+            .arg(max_results.to_string());
+
+        if !case_sensitive {
+            cmd.arg("-i");
+        } else {
+            cmd.arg("-s");
+        }
+
+        if let Some(pf) = path_filter {
+            cmd.arg("-g").arg(format!("*{}*", pf));
+        }
+
+        cmd.arg("-g").arg("!.git")
+            .arg("-g").arg("!node_modules")
+            .arg("-g").arg("!target")
+            .arg("-e").arg(pattern)
+            .arg(&self.workspace_root);
+
+        let output = cmd.output().map_err(|e| format!("Failed to spawn rg: {}", e))?;
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let mut matches = Vec::new();
+
+        for line in stdout.lines() {
+            let parts: Vec<&str> = line.splitn(4, ':').collect();
+            if parts.len() >= 4 {
+                let file_path = parts[0];
+                let line_number = parts[1].parse::<usize>().unwrap_or(0);
+                let column = parts[2].parse::<usize>().unwrap_or(0);
+                let content = parts[3].to_string();
+
+                let rel_file = std::path::Path::new(file_path)
+                    .strip_prefix(&self.workspace_root)
+                    .unwrap_or_else(|_| std::path::Path::new(file_path))
+                    .to_string_lossy()
+                    .replace('\\', "/");
+
+                matches.push(SearchMatch {
+                    file: rel_file,
+                    line_number,
+                    column,
+                    line_content: content,
+                });
+
+                if matches.len() >= max_results {
+                    break;
+                }
+            }
+        }
+
+        Ok(matches)
     }
 
     /// Verifies candidate files using the bundled Ripgrep binary

@@ -2,6 +2,8 @@
 /.antigravity
 /benchmark_50k_repo
 /benchmark_workspaces
+/workspaces
+/benchmark_runs
 /target_repo
 /graphify-out
 **/__pycache__

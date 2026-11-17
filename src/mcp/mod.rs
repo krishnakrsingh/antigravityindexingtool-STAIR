@@ -1,7 +1,10 @@
 pub mod handlers;
+pub mod pool;
 pub mod protocol;
 
 pub use handlers::McpHandler;
+#[allow(unused_imports)]
+pub use pool::{WorkspacePool, WorkspaceState};
 pub use protocol::*;
 
 use serde_json::json;
@@ -53,6 +56,23 @@ pub fn run_stdio_server(workspace_root: PathBuf) -> io::Result<()> {
 
         match request.method.as_str() {
             "initialize" => {
+                // Dynamically update default workspace from initialize params if provided
+                if let Some(params) = &request.params {
+                    if let Some(root_uri) = params.get("rootUri").and_then(|v| v.as_str()) {
+                        let path_str = root_uri.trim_start_matches("file:///").trim_start_matches("file://");
+                        let p = PathBuf::from(path_str);
+                        handler.pool.set_default(p);
+                    } else if let Some(folders) = params.get("workspaceFolders").and_then(|v| v.as_array()) {
+                        if let Some(first) = folders.first() {
+                            if let Some(uri) = first.get("uri").and_then(|v| v.as_str()) {
+                                let path_str = uri.trim_start_matches("file:///").trim_start_matches("file://");
+                                let p = PathBuf::from(path_str);
+                                handler.pool.set_default(p);
+                            }
+                        }
+                    }
+                }
+
                 let resp = JsonRpcResponse {
                     jsonrpc: "2.0".to_string(),
                     id: req_id,

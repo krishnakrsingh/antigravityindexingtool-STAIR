@@ -47,6 +47,7 @@ impl AstOutlineParser {
             "py" => Self::parse_python(content),
             "go" => Self::parse_go(content),
             "md" => Self::parse_markdown(content),
+            "prisma" => Self::parse_prisma(content),
             _ => Self::parse_generic(content),
         }
     }
@@ -759,8 +760,35 @@ impl AstOutlineParser {
                 let parts: Vec<&str> = def_line.split_whitespace().collect();
                 let pos = parts.iter().position(|&p| p == "type").unwrap_or(0);
                 if let Some(raw_name) = parts.get(pos + 1) {
+                    if raw_name.starts_with('{') {
+                        // Re-export type statement: export type { X } ...
+                        i += 1;
+                        continue;
+                    }
                     let name = raw_name.trim_end_matches('=').trim();
-                    let end_line = Self::find_brace_block_end(&lines, i);
+                    
+                    let mut has_brace = false;
+                    let mut end_line = i;
+                    for k in i..lines.len() {
+                        let l = lines[k].trim();
+                        if l.contains('{') {
+                            has_brace = true;
+                            break;
+                        }
+                        if l.contains(';') {
+                            end_line = k;
+                            break;
+                        }
+                        if k > i && (l.starts_with("export ") || l.starts_with("type ") || l.starts_with("const ") || l.starts_with("function ")) {
+                            end_line = k.saturating_sub(1);
+                            break;
+                        }
+                    }
+
+                    if has_brace {
+                        end_line = Self::find_brace_block_end(&lines, i);
+                    }
+
                     let b_start = offsets[top_dec_start];
                     let b_end = offsets[end_line + 1].min(content.len());
 
@@ -846,6 +874,46 @@ impl AstOutlineParser {
                         symbols.push(CodeSymbol {
                             name: fn_name.to_string(),
                             kind: SymbolKind::Function,
+                            signature: def_line.to_string(),
+                            line_start: top_dec_start + 1,
+                            line_end: end_line + 1,
+                            byte_start: b_start,
+                            byte_end: b_end,
+                            children: Vec::new(),
+                            decorators: top_decorators,
+                        });
+                        i = end_line + 1;
+                        continue;
+                    }
+                } else if def_line.starts_with("export const ") || def_line.starts_with("const ") {
+                    let left = def_line.split('=').next().unwrap_or("").trim();
+                    let name_part = left.split(':').next().unwrap_or(left).trim();
+                    let const_name = name_part.split_whitespace().last().unwrap_or("").trim();
+                    if !const_name.is_empty() && (def_line.starts_with("export const ") || const_name.chars().all(|c| c.is_uppercase() || c == '_' || c.is_numeric())) {
+                        let has_brace = lines[i..lines.len().min(i + 10)].iter().any(|l| l.contains('{'));
+                        let end_line = if has_brace {
+                            Self::find_brace_block_end(&lines, i)
+                        } else {
+                            let mut el = i;
+                            let mut bracket_depth: i32 = 0;
+                            for k in i..lines.len() {
+                                for ch in lines[k].chars() {
+                                    if ch == '[' { bracket_depth += 1; }
+                                    else if ch == ']' { bracket_depth = bracket_depth.saturating_sub(1); }
+                                }
+                                if bracket_depth == 0 && lines[k].contains(';') {
+                                    el = k;
+                                    break;
+                                }
+                            }
+                            el
+                        };
+                        let b_start = offsets[top_dec_start];
+                        let b_end = offsets[end_line + 1].min(content.len());
+
+                        symbols.push(CodeSymbol {
+                            name: const_name.to_string(),
+                            kind: SymbolKind::Constant,
                             signature: def_line.to_string(),
                             line_start: top_dec_start + 1,
                             line_end: end_line + 1,
@@ -1275,6 +1343,60 @@ impl AstOutlineParser {
                 });
             }
         }
+        symbols
+    }
+
+    /// High-speed AST outline parser for Prisma Schemas (models, enums, composite types)
+    pub fn parse_prisma(content: &str) -> Vec<CodeSymbol> {
+        let mut symbols = Vec::new();
+        let lines: Vec<&str> = content.lines().collect();
+        if lines.is_empty() {
+            return symbols;
+        }
+
+        let offsets = Self::compute_line_offsets(content, &lines);
+        let mut i = 0;
+
+        while i < lines.len() {
+            let line = lines[i].trim();
+            if line.is_empty() || line.starts_with("//") {
+                i += 1;
+                continue;
+            }
+
+            if line.starts_with("model ") || line.starts_with("enum ") || line.starts_with("type ") {
+                let parts: Vec<&str> = line.split_whitespace().collect();
+                if parts.len() >= 2 {
+                    let kind = match parts[0] {
+                        "model" => SymbolKind::Struct,
+                        "enum" => SymbolKind::Enum,
+                        "type" => SymbolKind::TypeAlias,
+                        _ => SymbolKind::Module,
+                    };
+                    let name = parts[1].trim_end_matches('{').trim();
+                    let end_line = Self::find_brace_block_end(&lines, i);
+                    let b_start = offsets[i];
+                    let b_end = offsets[end_line + 1].min(content.len());
+
+                    symbols.push(CodeSymbol {
+                        name: name.to_string(),
+                        kind,
+                        signature: line.to_string(),
+                        line_start: i + 1,
+                        line_end: end_line + 1,
+                        byte_start: b_start,
+                        byte_end: b_end,
+                        children: Vec::new(),
+                        decorators: Vec::new(),
+                    });
+                    i = end_line + 1;
+                    continue;
+                }
+            }
+
+            i += 1;
+        }
+
         symbols
     }
 

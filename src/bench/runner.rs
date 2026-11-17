@@ -120,7 +120,7 @@ impl BenchmarkRunner {
 
             // Cold rg execution (spawns rg over all repository files)
             let rg_t0 = Instant::now();
-            let mut rg_cmd = Command::new(crate::crepe::DEFAULT_BUNDLED_RG);
+            let mut rg_cmd = Command::new(crate::crepe::find_best_rg_path());
             rg_cmd
                 .current_dir(&self.workspace_root)
                 .arg("--color")

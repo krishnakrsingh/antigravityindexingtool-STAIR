@@ -41,7 +41,11 @@ pub struct CrepeIndex {
 
 impl CrepeIndex {
     pub fn new(workspace_root: PathBuf) -> Self {
-        let index_dir = workspace_root.join(".antigravity").join("crepe");
+        let index_dir = super::cache_mgr::get_workspace_cache_dir(&workspace_root);
+        Self::new_with_index_dir(workspace_root, index_dir)
+    }
+
+    pub fn new_with_index_dir(workspace_root: PathBuf, index_dir: PathBuf) -> Self {
         let gen_file = index_dir.join("current_gen.txt");
         let current_gen = if let Ok(s) = fs::read_to_string(&gen_file) {
             let trimmed = s.trim().to_string();
@@ -226,6 +230,7 @@ impl CrepeIndex {
         let _ = fs::write(&gen_file, &next_gen);
         *self.current_generation.write().unwrap() = next_gen;
 
+        let total_file_count = files.len();
         // Update in-memory structures
         *self.files.write().unwrap() = files;
         *self.file_to_id.write().unwrap() = file_to_id;
@@ -233,6 +238,9 @@ impl CrepeIndex {
 
         // Re-load mmap from newly built target_dir
         self.load_mmap()?;
+
+        // Record workspace metadata in central cache
+        super::cache_mgr::save_workspace_meta(&self.workspace_root, &self.index_dir, total_file_count);
 
         Ok(metadata)
     }
@@ -287,6 +295,8 @@ impl CrepeIndex {
                 *self.metadata.write().unwrap() = Some(meta);
             }
         }
+
+        super::cache_mgr::touch_workspace_meta(&self.index_dir);
 
         Ok(())
     }

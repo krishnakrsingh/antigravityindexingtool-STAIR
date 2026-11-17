@@ -1,0 +1,737 @@
+[
+  {
+    "id": "P00",
+    "folder": "run_00_stock_unindexed_baseline",
+    "name": "stock_unindexed_baseline",
+    "category": "Baseline",
+    "tools": [],
+    "flags": [],
+    "threads": 1,
+    "cache": "none",
+    "description": "Stock agent baseline: PowerShell Get-ChildItem | Select-String for discovery, full-file read_file for context, cold git diff for changes."
+  },
+  {
+    "id": "P01",
+    "folder": "run_01_fastcore_crepe_only",
+    "name": "fastcore_crepe_only",
+    "category": "Single-Tool",
+    "tools": [
+      "instant_grep"
+    ],
+    "flags": [
+      "-g"
+    ],
+    "threads": "auto",
+    "cache": "warm",
+    "description": "Isolated Instant Crepe Grep: Sparse 3-gram candidate pruning + parallel regex. File reads remain full-file; no AST or Merkle."
+  },
+  {
+    "id": "P02",
+    "folder": "run_02_fastcore_stair_only",
+    "name": "fastcore_stair_only",
+    "category": "Single-Tool",
+    "tools": [
+      "get_symbol_definition",
+      "get_symbol_outline"
+    ],
+    "flags": [
+      "-d",
+      "-o"
+    ],
+    "threads": "auto",
+    "cache": "warm",
+    "description": "Isolated STAIR AST Slices: Precision byte-range extraction of functions/classes. Discovery relies on stock grep/find."
+  },
+  {
+    "id": "P03",
+    "folder": "run_03_fastcore_bm25_semantic_only",
+    "name": "fastcore_bm25_semantic_only",
+    "category": "Single-Tool",
+    "tools": [
+      "semantic_search"
+    ],
+    "flags": [
+      "-s"
+    ],
+    "threads": "auto",
+    "cache": "warm",
+    "description": "Isolated Pure-Rust BM25 Subword Semantic Search: In-memory trigram subword ranking. Conceptual search without exact identifier names."
+  },
+  {
+    "id": "P04",
+    "folder": "run_04_fastcore_merkle_only",
+    "name": "fastcore_merkle_only",
+    "category": "Single-Tool",
+    "tools": [
+      "merkle_diff",
+      "merkle_snapshot"
+    ],
+    "flags": [
+      "-m"
+    ],
+    "threads": "auto",
+    "cache": "warm",
+    "description": "Isolated BLAKE3 Merkle State Diffs: Instant dirty file detection (<20\u00b5s). Discovery and inspection remain stock."
+  },
+  {
+    "id": "P05",
+    "folder": "run_05_crepe_stair",
+    "name": "crepe_stair",
+    "category": "Pairwise",
+    "tools": [
+      "instant_grep",
+      "get_symbol_definition",
+      "get_symbol_outline"
+    ],
+    "flags": [
+      "-g",
+      "-d"
+    ],
+    "threads": "auto",
+    "cache": "warm",
+    "description": "Crepe Grep + STAIR AST Slices: Instant candidate discovery followed immediately by AST definition slicing."
+  },
+  {
+    "id": "P06",
+    "folder": "run_06_crepe_bm25",
+    "name": "crepe_bm25",
+    "category": "Pairwise",
+    "tools": [
+      "instant_grep",
+      "semantic_search"
+    ],
+    "flags": [
+      "-g",
+      "-s"
+    ],
+    "threads": "auto",
+    "cache": "warm",
+    "description": "Crepe Grep + BM25 Semantic: Hybrid syntactic + subword conceptual search. Full-file reads used for inspection."
+  },
+  {
+    "id": "P07",
+    "folder": "run_07_crepe_merkle",
+    "name": "crepe_merkle",
+    "category": "Pairwise",
+    "tools": [
+      "instant_grep",
+      "merkle_diff",
+      "merkle_snapshot"
+    ],
+    "flags": [
+      "-g",
+      "-m"
+    ],
+    "threads": "auto",
+    "cache": "warm",
+    "description": "Crepe Grep + Merkle Diffs: Instant search with incremental dirty overlay tracking."
+  },
+  {
+    "id": "P08",
+    "folder": "run_08_stair_bm25",
+    "name": "stair_bm25",
+    "category": "Pairwise",
+    "tools": [
+      "get_symbol_definition",
+      "get_symbol_outline",
+      "semantic_search"
+    ],
+    "flags": [
+      "-d",
+      "-s"
+    ],
+    "threads": "auto",
+    "cache": "warm",
+    "description": "STAIR AST Slices + BM25 Semantic: Subword query directly yields symbol path, followed by zero-token-waste AST extraction."
+  },
+  {
+    "id": "P09",
+    "folder": "run_09_stair_merkle",
+    "name": "stair_merkle",
+    "category": "Pairwise",
+    "tools": [
+      "get_symbol_definition",
+      "get_symbol_outline",
+      "merkle_diff"
+    ],
+    "flags": [
+      "-d",
+      "-m"
+    ],
+    "threads": "auto",
+    "cache": "warm",
+    "description": "STAIR AST Slices + Merkle Diffs: AST definition extraction coupled with microsecond post-edit change verification."
+  },
+  {
+    "id": "P10",
+    "folder": "run_10_bm25_merkle",
+    "name": "bm25_merkle",
+    "category": "Pairwise",
+    "tools": [
+      "semantic_search",
+      "merkle_diff",
+      "merkle_snapshot"
+    ],
+    "flags": [
+      "-s",
+      "-m"
+    ],
+    "threads": "auto",
+    "cache": "warm",
+    "description": "BM25 Semantic + Merkle Diffs: Conceptual search with incremental symbol cache refresh upon file modification."
+  },
+  {
+    "id": "P11",
+    "folder": "run_11_crepe_stair_bm25",
+    "name": "crepe_stair_bm25",
+    "category": "Triplet",
+    "tools": [
+      "instant_grep",
+      "get_symbol_definition",
+      "semantic_search"
+    ],
+    "flags": [
+      "-g",
+      "-d",
+      "-s"
+    ],
+    "threads": "auto",
+    "cache": "warm",
+    "description": "Crepe + STAIR + BM25: Complete query intelligence stack (exact regex + semantic subword + precision AST extraction)."
+  },
+  {
+    "id": "P12",
+    "folder": "run_12_crepe_stair_merkle",
+    "name": "crepe_stair_merkle",
+    "category": "Triplet",
+    "tools": [
+      "instant_grep",
+      "get_symbol_definition",
+      "merkle_diff"
+    ],
+    "flags": [
+      "-g",
+      "-d",
+      "-m"
+    ],
+    "threads": "auto",
+    "cache": "warm",
+    "description": "Crepe + STAIR + Merkle: Exact regex discovery, precision AST slicing, and microsecond dirty diffing."
+  },
+  {
+    "id": "P13",
+    "folder": "run_13_crepe_bm25_merkle",
+    "name": "crepe_bm25_merkle",
+    "category": "Triplet",
+    "tools": [
+      "instant_grep",
+      "semantic_search",
+      "merkle_diff"
+    ],
+    "flags": [
+      "-g",
+      "-s",
+      "-m"
+    ],
+    "threads": "auto",
+    "cache": "warm",
+    "description": "Crepe + BM25 + Merkle: Syntactic and semantic search with incremental Merkle cache sync."
+  },
+  {
+    "id": "P14",
+    "folder": "run_14_stair_bm25_merkle",
+    "name": "stair_bm25_merkle",
+    "category": "Triplet",
+    "tools": [
+      "get_symbol_definition",
+      "semantic_search",
+      "merkle_diff"
+    ],
+    "flags": [
+      "-d",
+      "-s",
+      "-m"
+    ],
+    "threads": "auto",
+    "cache": "warm",
+    "description": "STAIR + BM25 + Merkle: Semantic symbol discovery with AST slicing and dirty state diffs."
+  },
+  {
+    "id": "P15",
+    "folder": "run_15_fastcore_quad_standard",
+    "name": "fastcore_quad_standard",
+    "category": "Quad Standard",
+    "tools": [
+      "instant_grep",
+      "get_symbol_definition",
+      "semantic_search",
+      "merkle_diff"
+    ],
+    "flags": [
+      "-g",
+      "-d",
+      "-s",
+      "-m"
+    ],
+    "threads": "auto",
+    "cache": "warm",
+    "description": "Full Fast-Core Quad-Stack: All 4 capabilities enabled with default production configuration."
+  },
+  {
+    "id": "P16",
+    "folder": "run_16_quad_cold_cache",
+    "name": "quad_cold_cache",
+    "category": "Caching / Warmth",
+    "tools": [
+      "instant_grep",
+      "get_symbol_definition",
+      "semantic_search",
+      "merkle_diff"
+    ],
+    "flags": [
+      "-g",
+      "-d",
+      "-s",
+      "-m",
+      "--cold"
+    ],
+    "threads": "auto",
+    "cache": "cold",
+    "description": "Quad-Stack Cold Cache: Cleared .antigravity/crepe before invocation. Measures cold index build latency inclusion."
+  },
+  {
+    "id": "P17",
+    "folder": "run_17_quad_warm_mmap",
+    "name": "quad_warm_mmap",
+    "category": "Caching / Warmth",
+    "tools": [
+      "instant_grep",
+      "get_symbol_definition",
+      "semantic_search",
+      "merkle_diff"
+    ],
+    "flags": [
+      "-g",
+      "-d",
+      "-s",
+      "-m",
+      "--warm"
+    ],
+    "threads": "auto",
+    "cache": "pre-warmed",
+    "description": "Quad-Stack Pre-Warmed Memory Map: lookup.bin and postings.bin pre-mapped into OS page cache."
+  },
+  {
+    "id": "P18",
+    "folder": "run_18_quad_incremental_gen_swap",
+    "name": "quad_incremental_gen_swap",
+    "category": "Caching / Warmth",
+    "tools": [
+      "instant_grep",
+      "get_symbol_definition",
+      "semantic_search",
+      "merkle_diff"
+    ],
+    "flags": [
+      "-g",
+      "-d",
+      "-s",
+      "-m",
+      "--gen-swap"
+    ],
+    "threads": "auto",
+    "cache": "gen_swap",
+    "description": "Quad-Stack Incremental Dual-Gen Swap: Modifies files and verifies generation toggling avoiding OS error 1224."
+  },
+  {
+    "id": "P19",
+    "folder": "run_19_crepe_cold_vs_warm",
+    "name": "crepe_cold_vs_warm",
+    "category": "Caching / Warmth",
+    "tools": [
+      "instant_grep"
+    ],
+    "flags": [
+      "-g",
+      "--cold"
+    ],
+    "threads": "auto",
+    "cache": "cold",
+    "description": "Isolated Crepe Cold Index Build: Evaluates stand-alone Crepe index construction latency vs instant queries."
+  },
+  {
+    "id": "P20",
+    "folder": "run_20_quad_stair_tight_slice",
+    "name": "quad_stair_tight_slice",
+    "category": "AST Context Windows",
+    "tools": [
+      "instant_grep",
+      "get_symbol_definition",
+      "semantic_search",
+      "merkle_diff"
+    ],
+    "flags": [
+      "-g",
+      "-d",
+      "-s",
+      "-m",
+      "--tight-slice"
+    ],
+    "threads": "auto",
+    "cache": "warm",
+    "description": "Quad-Stack Tight AST Slices: Strict symbol boundaries (byte_start..byte_end), maximizing token efficiency."
+  },
+  {
+    "id": "P21",
+    "folder": "run_21_quad_stair_extended_context",
+    "name": "quad_stair_extended_context",
+    "category": "AST Context Windows",
+    "tools": [
+      "instant_grep",
+      "get_symbol_definition",
+      "semantic_search",
+      "merkle_diff"
+    ],
+    "flags": [
+      "-g",
+      "-d",
+      "-s",
+      "-m",
+      "--extended-context"
+    ],
+    "threads": "auto",
+    "cache": "warm",
+    "description": "Quad-Stack Extended AST Slices: Extracts definition + decorators + docstring + 10 lines surrounding context."
+  },
+  {
+    "id": "P22",
+    "folder": "run_22_quad_stair_outline_guided",
+    "name": "quad_stair_outline_guided",
+    "category": "AST Context Windows",
+    "tools": [
+      "instant_grep",
+      "get_symbol_outline",
+      "get_symbol_definition",
+      "merkle_diff"
+    ],
+    "flags": [
+      "-g",
+      "-o",
+      "-d",
+      "-m"
+    ],
+    "threads": "auto",
+    "cache": "warm",
+    "description": "Quad-Stack Outline-Guided: Executes get_symbol_outline (depth 2) to build mental map before surgical definition call."
+  },
+  {
+    "id": "P23",
+    "folder": "run_23_stair_scoped_submodule",
+    "name": "stair_scoped_submodule",
+    "category": "AST Context Windows",
+    "tools": [
+      "get_symbol_definition",
+      "get_symbol_outline"
+    ],
+    "flags": [
+      "-d",
+      "-o",
+      "--scope",
+      "src/modules/operations"
+    ],
+    "threads": "auto",
+    "cache": "warm",
+    "description": "Scoped STAIR AST Trie: Symbol tree restricted strictly to operations module, evaluating sub-hierarchy build speed."
+  },
+  {
+    "id": "P24",
+    "folder": "run_24_quad_cascade_exact_first",
+    "name": "quad_cascade_exact_first",
+    "category": "Hybrid Routing",
+    "tools": [
+      "instant_grep",
+      "semantic_search",
+      "get_symbol_definition"
+    ],
+    "flags": [
+      "-c",
+      "--mode",
+      "exact-first"
+    ],
+    "threads": "auto",
+    "cache": "warm",
+    "description": "Autonomous Cascade Crepe Priority: Crepe Grep executed first; terminates in <25ms on matches; BM25 fallback on 0 hits."
+  },
+  {
+    "id": "P25",
+    "folder": "run_25_quad_cascade_semantic_first",
+    "name": "quad_cascade_semantic_first",
+    "category": "Hybrid Routing",
+    "tools": [
+      "semantic_search",
+      "get_symbol_definition",
+      "instant_grep"
+    ],
+    "flags": [
+      "-c",
+      "--mode",
+      "semantic-first"
+    ],
+    "threads": "auto",
+    "cache": "warm",
+    "description": "Autonomous Cascade Semantic Priority: BM25 subword search executed first; top hit immediately fed to STAIR slice."
+  },
+  {
+    "id": "P26",
+    "folder": "run_26_quad_hybrid_blended_scoring",
+    "name": "quad_hybrid_blended_scoring",
+    "category": "Hybrid Routing",
+    "tools": [
+      "instant_grep",
+      "semantic_search"
+    ],
+    "flags": [
+      "-g",
+      "-s",
+      "--blend",
+      "0.5"
+    ],
+    "threads": "auto",
+    "cache": "warm",
+    "description": "Hybrid Dual-Score Ranking: Combines Crepe n-gram rarity score with BM25 subword score."
+  },
+  {
+    "id": "P27",
+    "folder": "run_27_quad_bm25_pure_rust_cpu",
+    "name": "quad_bm25_pure_rust_cpu",
+    "category": "Hybrid Routing",
+    "tools": [
+      "semantic_search"
+    ],
+    "flags": [
+      "-s",
+      "--pure-rust-cpu"
+    ],
+    "threads": "auto",
+    "cache": "warm",
+    "description": "Pure-Rust In-Memory BM25: Explicitly enforces CPU-only in-memory subword index, bypassing CUDA sidecars."
+  },
+  {
+    "id": "P28",
+    "folder": "run_28_quad_crepe_inprocess_regex",
+    "name": "quad_crepe_inprocess_regex",
+    "category": "Verification Backend",
+    "tools": [
+      "instant_grep"
+    ],
+    "flags": [
+      "-g",
+      "--verifier",
+      "in-process"
+    ],
+    "threads": "auto",
+    "cache": "warm",
+    "description": "Crepe In-Process Regex DFA: Pruned candidates verified using Rust regex crate in-process memory."
+  },
+  {
+    "id": "P29",
+    "folder": "run_29_quad_crepe_bundled_ripgrep",
+    "name": "quad_crepe_bundled_ripgrep",
+    "category": "Verification Backend",
+    "tools": [
+      "instant_grep"
+    ],
+    "flags": [
+      "-g",
+      "--verifier",
+      "ripgrep"
+    ],
+    "threads": "auto",
+    "cache": "warm",
+    "description": "Crepe Bundled Ripgrep Subprocess: Pruned candidates verified by spawning bundled rg.exe subprocess."
+  },
+  {
+    "id": "P30",
+    "folder": "run_30_quad_crepe_case_sensitive",
+    "name": "quad_crepe_case_sensitive",
+    "category": "Verification Backend",
+    "tools": [
+      "instant_grep"
+    ],
+    "flags": [
+      "-g",
+      "--case-sensitive"
+    ],
+    "threads": "auto",
+    "cache": "warm",
+    "description": "Crepe Strict Case-Sensitive: Enforces strict case-sensitive 3-gram pruning and Boyer-Moore verification."
+  },
+  {
+    "id": "P31",
+    "folder": "run_31_quad_single_threaded_rayon1",
+    "name": "quad_single_threaded_rayon1",
+    "category": "Concurrency & Threads",
+    "tools": [
+      "instant_grep",
+      "get_symbol_definition",
+      "semantic_search",
+      "merkle_diff"
+    ],
+    "flags": [
+      "-g",
+      "-d",
+      "-s",
+      "-m"
+    ],
+    "threads": 1,
+    "cache": "warm",
+    "description": "Single-Threaded Pinned: Forces RAYON_NUM_THREADS=1. Isolates raw algorithmic performance without multicore contention."
+  },
+  {
+    "id": "P32",
+    "folder": "run_32_quad_multi_threaded_rayon_max",
+    "name": "quad_multi_threaded_rayon_max",
+    "category": "Concurrency & Threads",
+    "tools": [
+      "instant_grep",
+      "get_symbol_definition",
+      "semantic_search",
+      "merkle_diff"
+    ],
+    "flags": [
+      "-g",
+      "-d",
+      "-s",
+      "-m"
+    ],
+    "threads": "auto",
+    "cache": "warm",
+    "description": "Multi-Threaded Unconstrained: Utilizes all logical CPU cores via Rayon work-stealing pool."
+  },
+  {
+    "id": "P33",
+    "folder": "run_33_quad_constrained_threads_rayon2",
+    "name": "quad_constrained_threads_rayon2",
+    "category": "Concurrency & Threads",
+    "tools": [
+      "instant_grep",
+      "get_symbol_definition",
+      "semantic_search",
+      "merkle_diff"
+    ],
+    "flags": [
+      "-g",
+      "-d",
+      "-s",
+      "-m"
+    ],
+    "threads": 2,
+    "cache": "warm",
+    "description": "Constrained Worker Threads: Pins Rayon to 2 threads. Simulates resource-constrained CI runner."
+  },
+  {
+    "id": "P34",
+    "folder": "run_34_quad_merkle_file_diff",
+    "name": "quad_merkle_file_diff",
+    "category": "Merkle Diff Granularity",
+    "tools": [
+      "merkle_diff",
+      "merkle_snapshot"
+    ],
+    "flags": [
+      "-m",
+      "--granularity",
+      "file"
+    ],
+    "threads": "auto",
+    "cache": "warm",
+    "description": "File-Level Merkle Diff: Standard dirty tracking outputting changed file paths, BLAKE3 hashes, and timestamps."
+  },
+  {
+    "id": "P35",
+    "folder": "run_35_quad_merkle_ast_invalidation",
+    "name": "quad_merkle_ast_invalidation",
+    "category": "Merkle Diff Granularity",
+    "tools": [
+      "merkle_diff",
+      "get_symbol_definition"
+    ],
+    "flags": [
+      "-m",
+      "--granularity",
+      "ast-symbol"
+    ],
+    "threads": "auto",
+    "cache": "warm",
+    "description": "AST-Aware Merkle Invalidation: Merkle dirty file diff directly triggers selective AST symbol re-parsing for modified files only."
+  },
+  {
+    "id": "P36",
+    "folder": "run_36_quad_merkle_cumulative_history",
+    "name": "quad_merkle_cumulative_history",
+    "category": "Merkle Diff Granularity",
+    "tools": [
+      "merkle_diff"
+    ],
+    "flags": [
+      "-m",
+      "--diff-from-baseline"
+    ],
+    "threads": "auto",
+    "cache": "warm",
+    "description": "Cumulative Merkle Baseline Diff: Tracks diffs against the initial pre-task snapshot hash across all multi-turn edits."
+  },
+  {
+    "id": "P37",
+    "folder": "run_37_quad_gpu_vector_rag_sidecar",
+    "name": "quad_gpu_vector_rag_sidecar",
+    "category": "Advanced Architecture",
+    "tools": [
+      "semantic_search",
+      "get_symbol_definition"
+    ],
+    "flags": [
+      "-s",
+      "--backend",
+      "cuda-jina"
+    ],
+    "threads": "auto",
+    "cache": "warm",
+    "description": "Resident CUDA GPU Sidecar: Dispatches semantic search over HTTP (127.0.0.1:9819) to jina-code-embeddings with pure-Rust fallback."
+  },
+  {
+    "id": "P38",
+    "folder": "run_38_quad_stair_crlf_normalized",
+    "name": "quad_stair_crlf_normalized",
+    "category": "Advanced Architecture",
+    "tools": [
+      "get_symbol_definition",
+      "get_symbol_outline"
+    ],
+    "flags": [
+      "-d",
+      "--crlf-normalize"
+    ],
+    "threads": "auto",
+    "cache": "warm",
+    "description": "STAIR Windows CRLF Normalized: Automatically handles Windows \\r\\n vs Linux \\n byte offset translations."
+  },
+  {
+    "id": "P39",
+    "folder": "run_39_resident_mcp_daemon",
+    "name": "quad_resident_mcp_daemon",
+    "category": "Advanced Architecture",
+    "tools": [
+      "instant_grep",
+      "get_symbol_definition",
+      "semantic_search",
+      "merkle_diff"
+    ],
+    "flags": [
+      "--mcp"
+    ],
+    "threads": "auto",
+    "cache": "resident",
+    "description": "Resident Stdio MCP Server: Agent connects to running stdio daemon with pre-warmed memory state, eliminating process spawn overhead."
+  }
+]

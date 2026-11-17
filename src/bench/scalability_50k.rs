@@ -603,7 +603,7 @@ func (d *{}) RoutePacket(packet []byte) (int, error) {{
 
             // 2. Cold Ripgrep across all 50,000 files from disk
             let rg_t0 = Instant::now();
-            let mut rg_cmd = Command::new(crate::crepe::DEFAULT_BUNDLED_RG);
+            let mut rg_cmd = Command::new(crate::crepe::find_best_rg_path());
             rg_cmd
                 .current_dir(&self.benchmark_dir)
                 .arg("--color")
@@ -683,7 +683,7 @@ func (d *{}) RoutePacket(packet []byte) (int, error) {{
             let fast_core_ms = sem_t0.elapsed().as_secs_f64() * 1000.0;
 
             let rg_t0 = Instant::now();
-            let mut rg_cmd = Command::new(crate::crepe::DEFAULT_BUNDLED_RG);
+            let mut rg_cmd = Command::new(crate::crepe::find_best_rg_path());
             rg_cmd
                 .current_dir(&self.benchmark_dir)
                 .args(["--color", "never", "-i", "-e", "reconcile_sovereign_balance", "."]);
@@ -726,7 +726,7 @@ func (d *{}) RoutePacket(packet []byte) (int, error) {{
             let fast_core_ms = ast_t0.elapsed().as_secs_f64() * 1000.0;
 
             let rg_t0 = Instant::now();
-            let mut rg_cmd = Command::new(crate::crepe::DEFAULT_BUNDLED_RG);
+            let mut rg_cmd = Command::new(crate::crepe::find_best_rg_path());
             rg_cmd
                 .current_dir(&self.benchmark_dir)
                 .args(["--color", "never", "-e", "execute_atomic_settlement", "."]);

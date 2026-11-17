@@ -6,14 +6,17 @@ use std::sync::Arc;
 pub struct FileWatcher {
     merkle_tree: Arc<MerkleTree>,
     dirty_files: Arc<std::sync::Mutex<HashSet<String>>>,
+    initial_root_hash: String,
 }
 
 impl FileWatcher {
     pub fn new(root_path: PathBuf) -> Self {
         let tree = Arc::new(MerkleTree::new(root_path));
+        let initial_root_hash = tree.current_root_hash();
         Self {
             merkle_tree: tree,
             dirty_files: Arc::new(std::sync::Mutex::new(HashSet::new())),
+            initial_root_hash,
         }
     }
 
@@ -61,5 +64,15 @@ impl FileWatcher {
 
     pub fn root_hash(&self) -> String {
         self.merkle_tree.current_root_hash()
+    }
+
+    #[allow(dead_code)]
+    pub fn initial_root_hash(&self) -> &str {
+        &self.initial_root_hash
+    }
+
+    pub fn diff_since_start(&self) -> MerkleDiff {
+        self.merkle_tree.refresh();
+        self.diff_since_hash(&self.initial_root_hash).unwrap_or_default()
     }
 }
