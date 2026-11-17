@@ -15,16 +15,8 @@ description: Supercharged, sub-millisecond codebase search and structural AST co
 2. **Surgical AST Intelligence (`get_symbol`)**:
    - STAIR-RAG surgical context lens: extracts exact AST code definitions or context lenses by name or query.
    - Eliminates blind whole-file reading and achieves 94.5% token reduction.
+   - Supports `mode: "definition"` (default), `mode: "outline"` (hierarchical symbol outline), and `mode: "context"` (definition + callers).
 
 3. **Dirty-File Compiler Validation (`verify_changes`)**:
    - Microsecond BLAKE3 Merkle tree tracks uncommitted modified files.
    - Fail-fast compiler verification (`cargo check`, `tsc --noEmit`, `prisma validate`).
-
-4. **AST Outline & Definition (`get_symbol_outline`, `get_symbol_definition`)**:
-   - Structural symbol hierarchy and exact trie-based definition lookups.
-
-5. **BLAKE3 Merkle Diff (`merkle_diff`, `merkle_snapshot`)**:
-   - Sub-millisecond snapshotting and dirty-state tracking.
-
-6. **Local Semantic Code Search (`semantic_search`)**:
-   - Pure Rust subword BM25/TF-IDF and vector semantic search across symbols.

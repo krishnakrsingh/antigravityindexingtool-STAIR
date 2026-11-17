@@ -5,6 +5,7 @@ mod installer;
 mod mcp;
 mod merkle;
 mod stair;
+mod tree;
 
 use bench::{BenchmarkRunner, Scalability50kRunner};
 use clap::Parser;
@@ -12,6 +13,7 @@ use crepe::{CrepeIndex, Verifier};
 use embeddings::LocalSemanticIndex;
 use merkle::MerkleTree;
 use stair::SymbolTrie;
+use tree::CodebaseTree;
 use std::fs;
 use std::path::PathBuf;
 
@@ -98,6 +100,18 @@ struct Cli {
     #[arg(short, long)]
     cascade: Option<String>,
 
+    /// Generate a compact, clean structural file tree of the workspace
+    #[arg(long)]
+    tree: bool,
+
+    /// Max depth for the file tree display (default: 4)
+    #[arg(long, default_value_t = 4)]
+    tree_depth: usize,
+
+    /// Handle Antigravity SessionStart lifecycle hook (reads stdin, outputs injectSteps JSON)
+    #[arg(long)]
+    hook_session_start: bool,
+
     /// Run stdio MCP server (default if no other command specified)
     #[arg(long)]
     mcp: bool,
@@ -106,6 +120,18 @@ struct Cli {
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
     let workspace = mcp::pool::normalize_path(&cli.workspace);
+
+    if cli.tree {
+        let tree = CodebaseTree::new(workspace, cli.tree_depth);
+        let (tree_text, _count) = tree.generate();
+        println!("{}", tree_text);
+        return Ok(());
+    }
+
+    if cli.hook_session_start {
+        CodebaseTree::handle_session_start_hook(workspace)?;
+        return Ok(());
+    }
 
     if cli.setup {
         installer::run_setup()?;

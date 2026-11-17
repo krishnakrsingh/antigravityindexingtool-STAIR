@@ -82,67 +82,6 @@ impl McpHandler {
                     }
                 }),
             },
-            McpToolInfo {
-                name: "get_symbol_outline".to_string(),
-                description: "Adapted Code STAIR engine: generates hierarchical AST Symbol Table of Contents (classes, functions, methods, traits) eliminating token chunking".to_string(),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "path": { "type": "string", "description": "Optional file path or directory filter" },
-                        "depth": { "type": "integer", "description": "Max hierarchy depth (default 3)" }
-                    }
-                }),
-            },
-            McpToolInfo {
-                name: "get_symbol_definition".to_string(),
-                description: "Extracts the exact AST code definition from resident Symbol Prefix Trie with 0.00% hallucination rate and 50-60% token reduction".to_string(),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "symbol_path": { "type": "string", "description": "Hierarchical symbol path, e.g. 'src/merkle/tree.rs::MerkleTree' or 'src/crepe/index.rs::CrepeIndex::find_candidates'" }
-                    },
-                    "required": ["symbol_path"]
-                }),
-            },
-            McpToolInfo {
-                name: "merkle_diff".to_string(),
-                description: "Microsecond dirty-file tracking diff using BLAKE3 Merkle Tree against a previous root hash or baseline".to_string(),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "from_hash": { "type": "string", "description": "Optional base Merkle hash to diff against (default diffs against initial snapshot)" }
-                    }
-                }),
-            },
-            McpToolInfo {
-                name: "merkle_snapshot".to_string(),
-                description: "Retrieves current BLAKE3 Merkle tree root hash, total indexed files, and snapshot metadata".to_string(),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {}
-                }),
-            },
-            McpToolInfo {
-                name: "semantic_search".to_string(),
-                description: "GPU-accelerated FAISS + SQLite Vector RAG and AST semantic search returning enriched node metadata (class, signature, decorators, docstring, preview)".to_string(),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "query": { "type": "string", "description": "Natural language or technical code query" },
-                        "limit": { "type": "integer", "description": "Max results to return (default 10)" },
-                        "json_format": { "type": "boolean", "description": "Whether to return raw JSON instead of formatted Markdown (default false)" }
-                    },
-                    "required": ["query"]
-                }),
-            },
-            McpToolInfo {
-                name: "index_status".to_string(),
-                description: "Returns health, index metrics, memory-mapped lookup sizes, and cache status".to_string(),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {}
-                }),
-            },
         ]
     }
 
@@ -295,6 +234,7 @@ impl McpHandler {
 
     fn handle_get_symbol(&self, args: &serde_json::Value) -> McpToolCallResult {
         let ws = self.resolve_ws(args);
+        ws.wait_until_trie_ready(1000);
         let name_arg = args
             .get("name")
             .or_else(|| args.get("symbol_path"))
@@ -405,6 +345,7 @@ impl McpHandler {
 
     fn handle_get_symbol_outline(&self, args: &serde_json::Value) -> McpToolCallResult {
         let ws = self.resolve_ws(args);
+        ws.wait_until_trie_ready(1000);
         let path_filter = args.get("path").and_then(|v| v.as_str());
         let outlines = ws.trie.get_outline(path_filter);
 
@@ -437,6 +378,7 @@ impl McpHandler {
 
     fn handle_get_symbol_definition(&self, args: &serde_json::Value) -> McpToolCallResult {
         let ws = self.resolve_ws(args);
+        ws.wait_until_trie_ready(1000);
         let sym_path = match args.get("symbol_path").and_then(|v| v.as_str()) {
             Some(p) => p,
             None => {
@@ -1296,22 +1238,21 @@ mod tests {
     use tempfile::tempdir;
 
     #[test]
-    fn test_list_tools_contains_enriched_semantic_search() {
+    fn test_list_tools_contains_core_tools() {
         let tools = McpHandler::list_tools();
-        let tool = tools
-            .iter()
-            .find(|t| t.name == "semantic_search")
-            .expect("semantic_search tool missing");
-        assert!(tool.description.contains("Vector RAG"));
-        assert!(tool.description.contains("enriched node metadata"));
+        assert_eq!(tools.len(), 3);
+        assert!(tools.iter().any(|t| t.name == "instant_grep"));
+        assert!(tools.iter().any(|t| t.name == "get_symbol"));
+        assert!(tools.iter().any(|t| t.name == "verify_changes"));
 
-        let props = tool
+        let get_sym = tools.iter().find(|t| t.name == "get_symbol").unwrap();
+        let props = get_sym
             .input_schema
             .get("properties")
             .expect("missing properties");
+        assert!(props.get("name").is_some());
         assert!(props.get("query").is_some());
-        assert!(props.get("limit").is_some());
-        assert!(props.get("json_format").is_some());
+        assert!(props.get("mode").is_some());
     }
 
     #[test]

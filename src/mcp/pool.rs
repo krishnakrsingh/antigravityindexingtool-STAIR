@@ -63,6 +63,7 @@ pub struct WorkspaceState {
     pub trie: Arc<SymbolTrie>,
     pub semantic: Arc<LocalSemanticIndex>,
     pub is_indexing: Arc<AtomicBool>,
+    pub is_trie_ready: Arc<AtomicBool>,
 }
 
 impl WorkspaceState {
@@ -78,17 +79,41 @@ impl WorkspaceState {
         let trie = Arc::new(SymbolTrie::new(canonical.clone()));
         let semantic = Arc::new(LocalSemanticIndex::new());
         let is_indexing = Arc::new(AtomicBool::new(false));
+        let is_trie_ready = Arc::new(AtomicBool::new(false));
 
-        // Build AST symbol trie and local semantic index
-        let _sym_count = trie.build();
-        let mut items = Vec::new();
-        for (file, symbols) in trie.get_outline(None) {
-            for sym in symbols {
-                let sym_path = format!("{}::{}", file, sym.name);
-                items.push((sym_path, sym.signature, file.clone()));
+        let merkle_hash = watcher.root_hash();
+        let has_cached_trie = trie.try_load_cache(Some(&merkle_hash)).is_some();
+
+        if has_cached_trie {
+            // Already loaded from resident cache in <2ms!
+            let mut items = Vec::new();
+            for (file, symbols) in trie.get_outline(None) {
+                for sym in symbols {
+                    let sym_path = format!("{}::{}", file, sym.name);
+                    items.push((sym_path, sym.signature, file.clone()));
+                }
             }
+            semantic.index_symbols_batch(items);
+            is_trie_ready.store(true, Ordering::SeqCst);
+        } else {
+            // Cold start: Background AST parsing and semantic indexing so MCP server initializes instantly
+            let trie_bg = trie.clone();
+            let semantic_bg = semantic.clone();
+            let trie_ready = is_trie_ready.clone();
+            let m_hash = merkle_hash.clone();
+            std::thread::spawn(move || {
+                let _ = trie_bg.build_fresh_with_validation(Some(&m_hash));
+                let mut items = Vec::new();
+                for (file, symbols) in trie_bg.get_outline(None) {
+                    for sym in symbols {
+                        let sym_path = format!("{}::{}", file, sym.name);
+                        items.push((sym_path, sym.signature, file.clone()));
+                    }
+                }
+                semantic_bg.index_symbols_batch(items);
+                trie_ready.store(true, Ordering::SeqCst);
+            });
         }
-        semantic.index_symbols_batch(items);
 
         let has_mmap = crepe.total_files() > 0;
 
@@ -101,6 +126,7 @@ impl WorkspaceState {
             trie: trie.clone(),
             semantic: semantic.clone(),
             is_indexing: is_indexing.clone(),
+            is_trie_ready: is_trie_ready.clone(),
         };
 
         if !has_mmap {
@@ -115,6 +141,14 @@ impl WorkspaceState {
         }
 
         ws
+    }
+
+    /// Waits briefly for AST symbol indexing to complete if called on a cold start
+    pub fn wait_until_trie_ready(&self, timeout_ms: u64) {
+        let start = std::time::Instant::now();
+        while !self.is_trie_ready.load(Ordering::SeqCst) && start.elapsed().as_millis() < timeout_ms as u128 {
+            std::thread::sleep(std::time::Duration::from_millis(15));
+        }
     }
 
     /// Synchronously waits for indexing to complete if needed (e.g. for exact tests)

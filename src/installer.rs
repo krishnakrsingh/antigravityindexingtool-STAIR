@@ -74,7 +74,12 @@ pub fn run_setup() -> Result<(), Box<dyn std::error::Error>> {
     let plugin_json_path = plugin_dir.join("plugin.json");
     let mut fast_core_server = json!({
         "command": effective_exe.to_string_lossy().to_string(),
-        "args": ["--mcp"]
+        "args": ["--mcp"],
+        "tools": {
+            "instant_grep": { "eager": true },
+            "get_symbol": { "eager": true },
+            "verify_changes": { "eager": true }
+        }
     });
     if rg_path.exists() {
         fast_core_server["env"] = json!({
@@ -122,26 +127,53 @@ pub fn run_setup() -> Result<(), Box<dyn std::error::Error>> {
     fs::write(&skill_path, skill_content)?;
     println!("  ✅ Synced Antigravity Skill: {:?}", skill_path);
 
-    // Write execution-guardrails.md and no-file-paging.md into plugin rules & global config rules
+    // Write execution-guardrails.md into plugin rules (single source of truth)
     let guardrails_content = include_str!("../rules/execution-guardrails.md");
-    let no_paging_content = include_str!("../rules/no-file-paging.md");
     let plugin_rules_dir = plugin_dir.join("rules");
     fs::create_dir_all(&plugin_rules_dir)?;
     let plugin_guardrail_path = plugin_rules_dir.join("execution-guardrails.md");
     fs::write(&plugin_guardrail_path, guardrails_content)?;
     let plugin_paging_path = plugin_rules_dir.join("no-file-paging.md");
-    fs::write(&plugin_paging_path, no_paging_content)?;
+    let _ = fs::remove_file(plugin_paging_path);
     println!("  ✅ Synced Plugin Execution Guardrail: {:?}", plugin_guardrail_path);
 
+    // Deduplicate rules: Clean up redundant copies in ~/.gemini/config/rules/ so Antigravity doesn't inject twice
     let global_rules_dir = gemini_dir.join("config").join("rules");
-    fs::create_dir_all(&global_rules_dir)?;
-    let global_guardrail_path = global_rules_dir.join("execution-guardrails.md");
-    fs::write(&global_guardrail_path, guardrails_content)?;
-    let global_paging_path = global_rules_dir.join("no-file-paging.md");
-    fs::write(&global_paging_path, no_paging_content)?;
-    println!("  ✅ Synced Global Agent Execution Guardrail: {:?}", global_guardrail_path);
+    let redundant_guardrail = global_rules_dir.join("execution-guardrails.md");
+    let redundant_paging = global_rules_dir.join("no-file-paging.md");
+    let _ = fs::remove_file(redundant_guardrail);
+    let _ = fs::remove_file(redundant_paging);
+    println!("  ✅ Deduplicated rules (plugin rules is single source of truth, global duplicates purged).");
 
-    // Write all tool schemas into ~/.gemini/antigravity/mcp/fast-core/
+    // Configure Antigravity SessionStart lifecycle hook in plugin root (hooks.json)
+    let hooks_json_path = plugin_dir.join("hooks.json");
+    let hooks_config = json!({
+        "codebase-structure-map": {
+            "SessionStart": [
+                {
+                    "type": "command",
+                    "command": format!("\"{}\" --hook-session-start", effective_exe.to_string_lossy())
+                }
+            ]
+        }
+    });
+    fs::write(
+        &hooks_json_path,
+        serde_json::to_string_pretty(&hooks_config)?,
+    )?;
+    println!("  ✅ Synced Antigravity SessionStart Hook: {:?}", hooks_json_path);
+
+    // Clean old tool schemas in mcp_schemas_dir so deleted tools do not linger as lazy schemas
+    if let Ok(entries) = fs::read_dir(&mcp_schemas_dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.extension().and_then(|e| e.to_str()) == Some("json") {
+                let _ = fs::remove_file(path);
+            }
+        }
+    }
+
+    // Write all active tool schemas into ~/.gemini/antigravity/mcp/fast-core/
     let tools = McpHandler::list_tools();
     for tool in tools {
         let schema_path = mcp_schemas_dir.join(format!("{}.json", tool.name));
@@ -156,6 +188,12 @@ pub fn run_setup() -> Result<(), Box<dyn std::error::Error>> {
         )?;
         println!("  ✅ Synced MCP tool schema: {}.json", tool.name);
     }
+
+    // Write instructions.md into ~/.gemini/antigravity/mcp/fast-core/
+    let instructions_path = mcp_schemas_dir.join("instructions.md");
+    let instructions_content = include_str!("../resources/instructions.md");
+    fs::write(&instructions_path, instructions_content)?;
+    println!("  ✅ Synced MCP Instructions: {:?}", instructions_path);
 
     // 4. Third-Party Integration: Claude Desktop
     println!("\n[4/4] Checking third-party IDE configurations...");

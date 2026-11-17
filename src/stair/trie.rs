@@ -32,6 +32,16 @@ pub struct SymbolContextResult {
     pub total_file_lines: usize,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SymbolCacheData {
+    pub symbols_by_path: HashMap<String, SymbolEntry>,
+    pub file_symbols: HashMap<String, Vec<CodeSymbol>>,
+    pub total_symbols: usize,
+    pub created_at: String,
+    #[serde(default)]
+    pub merkle_root_hash: String,
+}
+
 #[derive(Default)]
 struct TrieNode {
     entry: Option<SymbolEntry>,
@@ -55,8 +65,85 @@ impl SymbolTrie {
         }
     }
 
-    /// Indexes all source files into the Symbol Trie
+    fn get_cache_file(&self) -> PathBuf {
+        crate::crepe::cache_mgr::get_workspace_cache_dir(&self.workspace_root).join("symbols_cache.json")
+    }
+
+    pub fn try_load_cache(&self, expected_merkle_hash: Option<&str>) -> Option<usize> {
+        let cache_file = self.get_cache_file();
+        if !cache_file.exists() {
+            return None;
+        }
+        let data_str = fs::read_to_string(&cache_file).ok()?;
+        let data: SymbolCacheData = serde_json::from_str(&data_str).ok()?;
+
+        if let Some(expected_hash) = expected_merkle_hash {
+            if !data.merkle_root_hash.is_empty() && data.merkle_root_hash != expected_hash {
+                // Workspace Merkle root has changed - cache is stale!
+                return None;
+            }
+        }
+
+        let mut trie_root = TrieNode::default();
+        for (sym_path, entry) in &data.symbols_by_path {
+            Self::insert_in_node(&mut trie_root, sym_path, entry.clone());
+        }
+
+        let count = data.symbols_by_path.len();
+        *self.root.write().unwrap() = trie_root;
+        *self.symbols_by_path.write().unwrap() = data.symbols_by_path;
+        *self.file_symbols.write().unwrap() = data.file_symbols;
+
+        Some(count)
+    }
+
+    pub fn save_cache(&self, merkle_root_hash: Option<&str>) {
+        let symbols_by_path = self.symbols_by_path.read().unwrap().clone();
+        let file_symbols = self.file_symbols.read().unwrap().clone();
+        let total_symbols = symbols_by_path.len();
+        if total_symbols == 0 {
+            return;
+        }
+        let cache_file = self.get_cache_file();
+        if let Some(parent) = cache_file.parent() {
+            let _ = fs::create_dir_all(parent);
+        }
+        let cache_data = SymbolCacheData {
+            symbols_by_path,
+            file_symbols,
+            total_symbols,
+            created_at: chrono::Utc::now().to_rfc3339(),
+            merkle_root_hash: merkle_root_hash.unwrap_or("").to_string(),
+        };
+        if let Ok(json_str) = serde_json::to_string(&cache_data) {
+            let _ = fs::write(cache_file, json_str);
+        }
+    }
+
+    /// Indexes all source files into the Symbol Trie (validates against workspace Merkle root hash)
     pub fn build(&self) -> usize {
+        let current_hash = crate::merkle::MerkleTree::new(self.workspace_root.clone()).current_root_hash();
+        self.build_with_validation(Some(&current_hash))
+    }
+
+    /// Indexes source files validating against the expected Merkle root hash
+    pub fn build_with_validation(&self, expected_merkle_hash: Option<&str>) -> usize {
+        if let Some(count) = self.try_load_cache(expected_merkle_hash) {
+            if count > 0 {
+                return count;
+            }
+        }
+        self.build_fresh_with_validation(expected_merkle_hash)
+    }
+
+    /// Forces a full re-parse of all source files and updates the disk cache
+    #[allow(dead_code)]
+    pub fn build_fresh(&self) -> usize {
+        self.build_fresh_with_validation(None)
+    }
+
+    /// Forces a full re-parse and writes cache with the given Merkle hash
+    pub fn build_fresh_with_validation(&self, merkle_root_hash: Option<&str>) -> usize {
         let mut walker = WalkBuilder::new(&self.workspace_root);
         walker
             .hidden(true)
@@ -132,7 +219,71 @@ impl SymbolTrie {
         *self.symbols_by_path.write().unwrap() = symbols_by_path;
         *self.file_symbols.write().unwrap() = file_symbols;
 
+        self.save_cache(merkle_root_hash);
         count
+    }
+
+    /// Re-parses a single file on-the-fly and surgically updates the symbol trie
+    pub fn reparse_file(&self, rel_path: &str) -> bool {
+        let norm_rel = rel_path.replace('\\', "/");
+        let abs_path = self.workspace_root.join(&norm_rel);
+        if !abs_path.is_file() {
+            return false;
+        }
+        let content = match fs::read_to_string(&abs_path) {
+            Ok(c) => c,
+            Err(_) => return false,
+        };
+        let symbols = AstOutlineParser::parse_file(&abs_path, &content);
+
+        let mut symbols_by_path = self.symbols_by_path.write().unwrap();
+        let mut file_symbols = self.file_symbols.write().unwrap();
+
+        // 1. Remove old symbols for this file
+        if let Some(old_symbols) = file_symbols.get(&norm_rel) {
+            for s in old_symbols {
+                let p = format!("{}::{}", norm_rel, s.name);
+                symbols_by_path.remove(&p);
+                if s.name.contains("::") {
+                    let method_part = s.name.split("::").last().unwrap_or(&s.name);
+                    let short_path = format!("{}::{}", norm_rel, method_part);
+                    symbols_by_path.remove(&short_path);
+                }
+            }
+        }
+
+        // 2. Insert new symbols
+        for sym in &symbols {
+            let sym_path = format!("{}::{}", norm_rel, sym.name);
+            let entry = SymbolEntry {
+                symbol_path: sym_path.clone(),
+                file_path: norm_rel.clone(),
+                name: sym.name.clone(),
+                kind: sym.kind,
+                signature: sym.signature.clone(),
+                line_start: sym.line_start,
+                line_end: sym.line_end,
+                byte_start: sym.byte_start,
+                byte_end: sym.byte_end,
+                decorators: sym.decorators.clone(),
+            };
+            symbols_by_path.insert(sym_path.clone(), entry.clone());
+            if sym.name.contains("::") {
+                let method_part = sym.name.split("::").last().unwrap_or(&sym.name);
+                let short_path = format!("{}::{}", norm_rel, method_part);
+                symbols_by_path.insert(short_path, entry);
+            }
+        }
+        file_symbols.insert(norm_rel, symbols);
+
+        // 3. Rebuild TrieNode
+        let mut trie_root = TrieNode::default();
+        for (sym_path, entry) in symbols_by_path.iter() {
+            Self::insert_in_node(&mut trie_root, sym_path, entry.clone());
+        }
+        *self.root.write().unwrap() = trie_root;
+
+        true
     }
 
     fn insert_in_node(node: &mut TrieNode, path: &str, entry: SymbolEntry) {
@@ -249,9 +400,25 @@ impl SymbolTrie {
 
     /// Extracts the exact source code slice for a symbol from disk
     pub fn extract_symbol_code(&self, symbol_path: &str) -> Option<(SymbolEntry, String)> {
-        if let Some(entry) = self.find_exact(symbol_path) {
+        if let Some(mut entry) = self.find_exact(symbol_path) {
             let abs_path = self.workspace_root.join(&entry.file_path);
-            let content = fs::read_to_string(abs_path).ok()?;
+            let mut content = fs::read_to_string(&abs_path).ok()?;
+
+            // Self-healing check: if file was edited and boundaries are invalid or stale, reparse file
+            let is_stale = entry.byte_end > content.len()
+                || (entry.byte_end > entry.byte_start
+                    && content.get(entry.byte_start..entry.byte_end).map_or(true, |s| !s.contains(&entry.name)));
+
+            if is_stale {
+                if self.reparse_file(&entry.file_path) {
+                    if let Some(fresh_entry) = self.find_exact(symbol_path) {
+                        entry = fresh_entry;
+                        if let Ok(fresh_content) = fs::read_to_string(&abs_path) {
+                            content = fresh_content;
+                        }
+                    }
+                }
+            }
 
             if entry.byte_end > entry.byte_start {
                 if let Some(code_slice) = content.get(entry.byte_start..entry.byte_end) {
@@ -409,9 +576,26 @@ impl SymbolTrie {
         include_imports: bool,
         padding_lines: usize,
     ) -> Option<SymbolContextResult> {
-        let entry = self.find_exact(symbol_path)?;
+        let mut entry = self.find_exact(symbol_path)?;
         let abs_path = self.workspace_root.join(&entry.file_path);
-        let content = fs::read_to_string(&abs_path).ok()?;
+        let mut content = fs::read_to_string(&abs_path).ok()?;
+
+        // Self-healing check: if file was edited and boundaries are invalid or stale, reparse file
+        let is_stale = entry.byte_end > content.len()
+            || (entry.byte_end > entry.byte_start
+                && content.get(entry.byte_start..entry.byte_end).map_or(true, |s| !s.contains(&entry.name)));
+
+        if is_stale {
+            if self.reparse_file(&entry.file_path) {
+                if let Some(fresh_entry) = self.find_exact(symbol_path) {
+                    entry = fresh_entry;
+                    if let Ok(fresh_content) = fs::read_to_string(&abs_path) {
+                        content = fresh_content;
+                    }
+                }
+            }
+        }
+
         let lines: Vec<&str> = content.lines().collect();
         let total_file_lines = lines.len();
 

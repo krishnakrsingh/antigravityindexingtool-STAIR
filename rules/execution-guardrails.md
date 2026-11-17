@@ -1,31 +1,26 @@
+---
+trigger: always_on
+description: Native Direct Action & Zero-Exploration Execution Guardrails. Strictly bans exploratory file paging and shell crawls; mandates instant_grep and get_symbol.
+---
+
 # Native Direct Action & Zero-Exploration Execution Guardrails
 
-## 1. Intent Classification: Operational Task vs. Code Authoring
-- When a prompt requests an operational action, cleanup, environment setup, installation, or sanity test (e.g., "clean our PC, install the repo using the command, test if it works"):
-  - **TREAT AS AN OPERATIONAL TASK, NOT A CODE AUDIT.**
-  - **BANNED**: Opening source files, inspecting implementation details, pre-emptive grep searches, or analyzing functions before running the requested steps.
-  - **MANDATORY**: Execute the requested operational steps immediately via terminal commands.
+## 1. Zero Exploratory Crawling
+- Consult the resident Codebase Map (injected at SessionStart) to identify target files directly.
+- NEVER run PowerShell `Get-ChildItem -Recurse`, `Select-String`, or recursive directory crawls across the workspace.
+- For code search, use `instant_grep` exclusively.
+- NEVER make consecutive `read_file` calls to browse or paginate contiguous line ranges. Use `get_symbol` to pull exact AST slices.
+- Do NOT run caller greps, whole-codebase audits, or exploratory searches before acting.
 
-## 2. Strict Sequential Stage Map
-- Always decompose operational tasks into a strict, linear stage map:
-  - **Stage 1 (Prerequisites / Cleanup)**: Purge artifacts or clean state. Execute command. Check exit code.
-  - **Stage 2 (Execution / Install)**: Run installer / build script. Check exit code.
-  - **Stage 3 (Verification Check That Can Fail)**: Run the sanity test / verification command.
-- **NEVER branch into speculative code refactoring or pre-emptive fixes during an operational plan.** Execute the plan as requested.
+## 2. Operational Tasks vs. Code Authoring
+- If a prompt requests an operational action, cleanup, installation, build, or test run:
+  - TREAT AS AN OPERATIONAL TASK, NOT A CODE AUDIT.
+  - Do NOT open source files or analyze functions before running the requested steps.
+  - Execute terminal commands immediately.
+  - If commands succeed with exit code 0, you are DONE. Do not speculate or audit code.
 
-## 3. The Verify-Before-Edit Gate
-- **NEVER modify or inspect source code unless an executed command actually fails** with an explicit error trace or non-zero exit code.
-- If all steps succeed with exit code 0, the task is complete. Report what was run, provide concrete evidence (exit code, output summary), and stop.
-
-## 4. Surgical Diagnostic Isolation (Only Upon Verified Failure)
-- If and only if a command fails during execution:
-  - Isolate the single failure from the terminal stderr / error trace.
-  - Use `get_symbol` to pull only the specific failing symbol or signature.
-  - Do NOT paginate or read surrounding unrelated code.
-  - Apply the minimal targeted fix.
-  - Re-run the exact failing command immediately.
-
-## 5. Zero Sliding-Window File Paging & Zero Token Bloat
-- Never make consecutive `read_file` calls to "browse" or "audit" a repository.
-- Use `instant_grep` for candidate sub-millisecond lookups.
-- Use `get_symbol` for exact AST definition extraction (0.00% hallucination, 94.5% token reduction).
+## 3. Surgical Code Edits
+- When authoring or editing code:
+  1. Pull the target symbol using `get_symbol(name: "...", path: "...")`.
+  2. Apply the surgical edit directly using `edit_file`.
+  3. Verify the changes using `verify_changes`.
