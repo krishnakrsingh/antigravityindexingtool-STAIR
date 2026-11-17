@@ -30,6 +30,10 @@ struct Cli {
     #[arg(long)]
     setup: bool,
 
+    /// Display active Fable-Mode execution guardrails and agent discipline
+    #[arg(long)]
+    guardrails: bool,
+
     /// List all indexed workspaces in central cache
     #[arg(long)]
     cache_list: bool,
@@ -105,6 +109,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     if cli.setup {
         installer::run_setup()?;
+        return Ok(());
+    }
+
+    if cli.guardrails {
+        println!("{}", include_str!("../rules/execution-guardrails.md"));
         return Ok(());
     }
 

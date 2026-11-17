@@ -102,39 +102,31 @@ pub fn run_setup() -> Result<(), Box<dyn std::error::Error>> {
     let skill_dir = plugin_dir.join("skills").join("fast-code-intelligence");
     fs::create_dir_all(&skill_dir)?;
     let skill_path = skill_dir.join("SKILL.md");
-    let skill_content = r#"---
-name: fast-code-intelligence
-description: Supercharged, sub-millisecond codebase search and structural AST code intelligence. Use whenever exploring, navigating, or searching large repositories (1,000 to 50,000+ files) to eliminate search lag and context bloat.
----
-
-# Fast Code Intelligence
-
-`fast-code-intelligence` provides instant code navigation powered by `antigravity-fast-core`:
-
-1. **Instant Grep (`instant_grep`)**:
-   - Memory-mapped sparse n-gram inverted index (`crepe`).
-   - Pinpoints candidate files in <0.05 ms, verifies with exact ripgrep engine in <3 ms.
-   - 100% token precision; supports regex alternations, word boundaries, and case-insensitivity.
-
-2. **Surgical AST Intelligence (`get_symbol`)**:
-   - STAIR-RAG surgical context lens: extracts exact AST code definitions or context lenses by name or query.
-   - Eliminates blind whole-file reading and achieves 94.5% token reduction.
-
-3. **Dirty-File Compiler Validation (`verify_changes`)**:
-   - Microsecond BLAKE3 Merkle tree tracks uncommitted modified files.
-   - Fail-fast compiler verification (`cargo check`, `tsc --noEmit`, `prisma validate`).
-
-4. **AST Outline & Definition (`get_symbol_outline`, `get_symbol_definition`)**:
-   - Structural symbol hierarchy and exact trie-based definition lookups.
-
-5. **BLAKE3 Merkle Diff (`merkle_diff`, `merkle_snapshot`)**:
-   - Sub-millisecond snapshotting and dirty-state tracking.
-
-6. **Local Semantic Code Search (`semantic_search`)**:
-   - Pure Rust subword BM25/TF-IDF and vector semantic search across symbols.
-"#;
+    let skill_content = include_str!("../skills/fast-code-intelligence/SKILL.md");
     fs::write(&skill_path, skill_content)?;
     println!("  ✅ Synced Antigravity Skill: {:?}", skill_path);
+
+    // Write Fable-Mode SKILL.md into ~/.gemini/config/plugins/fast-code-intelligence/skills/fable-mode/
+    let fable_skill_dir = plugin_dir.join("skills").join("fable-mode");
+    fs::create_dir_all(&fable_skill_dir)?;
+    let fable_skill_path = fable_skill_dir.join("SKILL.md");
+    let fable_skill_content = include_str!("../skills/fable-mode/SKILL.md");
+    fs::write(&fable_skill_path, fable_skill_content)?;
+    println!("  ✅ Synced Fable-Mode Skill: {:?}", fable_skill_path);
+
+    // Write execution-guardrails.md into plugin rules & global config rules
+    let guardrails_content = include_str!("../rules/execution-guardrails.md");
+    let plugin_rules_dir = plugin_dir.join("rules");
+    fs::create_dir_all(&plugin_rules_dir)?;
+    let plugin_guardrail_path = plugin_rules_dir.join("execution-guardrails.md");
+    fs::write(&plugin_guardrail_path, guardrails_content)?;
+    println!("  ✅ Synced Plugin Execution Guardrail: {:?}", plugin_guardrail_path);
+
+    let global_rules_dir = gemini_dir.join("config").join("rules");
+    fs::create_dir_all(&global_rules_dir)?;
+    let global_guardrail_path = global_rules_dir.join("execution-guardrails.md");
+    fs::write(&global_guardrail_path, guardrails_content)?;
+    println!("  ✅ Synced Global Agent Execution Guardrail: {:?}", global_guardrail_path);
 
     // Write all tool schemas into ~/.gemini/antigravity/mcp/fast-core/
     let tools = McpHandler::list_tools();

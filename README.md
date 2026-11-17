@@ -264,9 +264,27 @@ antigravity-fast-core --cache-clean
 # Clear all central caches across all repositories
 antigravity-fast-core --cache-clean-all
 
-# Self-setup and register MCP schemas
+# Self-setup and register MCP schemas, skills, and rules
 antigravity-fast-core --setup
+
+# Display active Fable-Mode execution guardrails and agent discipline
+antigravity-fast-core --guardrails
 ```
+
+---
+
+## 🛡️ Embedded Fable-Mode Discipline & Execution Guardrails
+
+Stock coding agents frequently suffer from an execution pathology: **over-analyzing and wandering through files on simple operational tasks** (e.g., when asked to clean, install, or run tests, they spend 10 turns reading implementation code before executing).
+
+`antigravity-fast-core` embeds deep **Fable-Mode Execution Discipline** (inspired by [`mrtooher/fable-mode`](https://github.com/mrtooher/fable-mode)) directly into your agent environment:
+
+1. **Intent Classification**: Explicitly distinguishes *Operational Tasks* (clean, install, run, verify) from *Code Authoring*. On operational requests, file browsing is strictly banned—commands execute immediately.
+2. **Strict Sequential Stage Maps**: Enforces linear execution (`Prerequisites` → `Execution` → `Verification Check That Can Fail`).
+3. **The Verify-Before-Edit Gate**: Agents are strictly forbidden from modifying or inspecting source code unless a terminal command actually fails with an error trace.
+4. **Surgical Isolation Over File Paging**: Replaces multi-turn file reads with `get_symbol` (AST definition extraction) and `instant_grep` (sparse n-gram lookups).
+
+These rules and skills (`execution-guardrails.md` and `fable-mode`) are automatically registered into your Antigravity IDE and Claude environment during `antigravity-fast-core --setup`.
 
 ---
 
