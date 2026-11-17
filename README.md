@@ -12,7 +12,7 @@
 
 # ⚡ Antigravity Fast-Core (STAIR)
 
-**Sub-Millisecond Code Intelligence • Cursor Crepe Sparse N-Gram Engine • IBM STAIR AST Surgical Lens • BLAKE3 Cryptographic Merkle Diffing • Fable-Mode Discipline**
+**Sub-Millisecond Code Intelligence • Cursor Crepe Sparse N-Gram Engine • IBM STAIR AST Surgical Lens • BLAKE3 Cryptographic Merkle Diffing • Zero-Exploration Direct Action**
 
 [![Rust](https://img.shields.io/badge/Rust-1.80%2B-orange.svg?style=for-the-badge&logo=rust)](https://www.rust-lang.org)
 [![MCP Protocol](https://img.shields.io/badge/MCP-2024--11--05-blue.svg?style=for-the-badge&logo=anthropic)](https://modelcontextprotocol.io/)
@@ -26,12 +26,12 @@
 
 <p align="center">
   <b>Antigravity Fast-Core</b> eliminates the 3-minute <i>File Exploration Tax</i> that cripples AI coding agents.<br>
-  It replaces sliding-window file pagination with <b>1-shot AST surgical retrieval</b>, sub-10ms sparse n-gram search, microsecond cryptographic dirty diffing, and embedded <b>Fable-Mode</b> execution guardrails.
+  It replaces sliding-window file pagination with <b>1-shot AST surgical retrieval</b>, sub-10ms sparse n-gram search, microsecond cryptographic dirty diffing, and embedded <b>Direct Action</b> execution guardrails.
 </p>
 
 ---
 
-[⚡ Quick Demo](#-live-terminal-demo) • [💥 The Problem](#-the-problem-the-file-exploration-tax) • [📊 Empirical Benchmarks](#-empirical-benchmarks) • [🥊 Head-to-Head Comparison](#-head-to-head-comparison) • [🏗️ Architecture](#-deep-system-architecture) • [🛡️ Fable-Mode](#-embedded-fable-mode-execution-guardrails) • [📦 Installation](#-one-command-quickstart) • [🔌 MCP Config](#-mcp-server-configuration)
+[⚡ Quick Demo](#-live-terminal-demo) • [💥 The Problem](#-the-problem-the-file-exploration-tax) • [📊 Empirical Benchmarks](#-empirical-benchmarks) • [🥊 Head-to-Head Comparison](#-head-to-head-comparison) • [🏗️ Architecture](#-deep-system-architecture) • [🛡️ Execution Guardrails](#-embedded-execution-guardrails) • [📦 Installation](#-one-command-quickstart) • [🔌 MCP Config](#-mcp-server-configuration)
 
 ---
 
@@ -149,7 +149,7 @@ BLAKE3 Merkle Tree Diff      ▏ 0.002 ms  (2 µs — 60,000x FASTER)
 | **Token Reduction** | 0% (full ingest) | ~40% | 0% | **94.5% Context Reduction** |
 | **Dirty File Tracking** | ❌ (runs dev servers) | File watcher | Git CLI | **BLAKE3 Merkle DAG (2 µs)** |
 | **Fail-Fast Compiler Gate** | ❌ (slow builds) | Built-in | ❌ | **✅ Integrated (`tsc`, `cargo`, `prisma`)** |
-| **Agent Execution Guardrails** | ❌ (speculative reading) | ❌ | ❌ | **✅ Fable-Mode Embedded Rules** |
+| **Agent Execution Guardrails** | ❌ (speculative reading) | ❌ | ❌ | **✅ Direct Action Embedded Rules** |
 | **Multi-Workspace Pool** | ❌ (single directory) | Per-window | Single repo | **✅ Dynamic LRU Pool (20+ repos)** |
 | **Local Privacy** | Cloud dependent | Cloud telemetry | Cloud | **100% Offline & Native Rust** |
 | **Zero Git Pollution** | ⚠️ Creates temp dirs | Clean | Clean | **Zero `.antigravity` in repos** |
@@ -205,15 +205,15 @@ BLAKE3 Merkle Tree Diff      ▏ 0.002 ms  (2 µs — 60,000x FASTER)
 
 ---
 
-## 🛡️ Embedded Fable-Mode Execution Guardrails
+## 🛡️ Embedded Execution Guardrails
 
 Stock coding agents frequently suffer from an execution pathology: **over-analyzing and wandering through files on simple operational tasks** (e.g., when asked to clean, install, or run tests, they spend 10 turns reading implementation code before executing).
 
-`antigravity-fast-core` embeds deep **Fable-Mode Execution Discipline** (inspired by [`mrtooher/fable-mode`](https://github.com/mrtooher/fable-mode)) directly into your agent environment:
+`antigravity-fast-core` embeds deep **Direct Action Execution Discipline** directly into your agent environment:
 
 ```
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
-│                        FABLE-MODE AGENT EXECUTION GUARDRAILS                           │
+│                        DIRECT ACTION AGENT EXECUTION GUARDRAILS                        │
 ├────────────────────────────────────────────────────────────────────────────────────────┤
 │ 1. INTENT CLASSIFICATION : Operational tasks (clean/install/test) ban pre-emptive      │
 │                            file reading. Commands execute immediately.                 │
@@ -225,7 +225,7 @@ Stock coding agents frequently suffer from an execution pathology: **over-analyz
 └────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-These rules and skills ([execution-guardrails.md](rules/execution-guardrails.md) and [fable-mode](skills/fable-mode/SKILL.md)) are automatically installed into your Antigravity IDE and Claude Desktop during `--setup`.
+These rules ([execution-guardrails.md](rules/execution-guardrails.md)) are automatically installed into your Antigravity IDE and Claude Desktop during `--setup`.
 
 ---
 
@@ -299,7 +299,7 @@ The installer automatically:
 1. Compiles the high-speed optimized release binary.
 2. Copies it to `~/.antigravity/bin/antigravity-fast-core` (with Windows active-process `.old` atomic replacement).
 3. Adds `~/.antigravity/bin` to your environment `PATH` (both system and current session).
-4. Auto-registers the Antigravity Plugin manifest, Fable-Mode execution rules, and Claude Desktop configs.
+4. Auto-registers the Antigravity Plugin manifest, execution rules, and Claude Desktop configs.
 
 ---
 
@@ -361,7 +361,7 @@ antigravity-fast-core -w . --grep "handle_tool_call"
 # Microsecond dirty-diff and compiler verification
 antigravity-fast-core -w . --verify
 
-# Display active Fable-Mode execution guardrails and agent discipline
+# Display active Direct Action execution guardrails and agent discipline
 antigravity-fast-core --guardrails
 
 # Inspect centralized disk cache across all active projects
@@ -384,7 +384,6 @@ antigravity-fast-core --setup
 * **Cursor Crepe**: Sparse character n-gram inverted index architecture and memory-mapped posting list techniques.
 * **IBM Research STAIR**: Hierarchical structural abstract syntax tree indexing paradigms for large codebases.
 * **BLAKE3**: Cryptographic tree hashing algorithm by Jack O'Connor, Samuel Neves, Jean-Philippe Aumasson, and Zooko Wilcox-O'Hearn.
-* **mrtooher/fable-mode**: Multi-stage agent execution discipline, stage maps, and failable verification checks.
 
 ---
 

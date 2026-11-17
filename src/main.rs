@@ -30,7 +30,7 @@ struct Cli {
     #[arg(long)]
     setup: bool,
 
-    /// Display active Fable-Mode execution guardrails and agent discipline
+    /// Display active Direct Action execution guardrails and agent discipline
     #[arg(long)]
     guardrails: bool,
 

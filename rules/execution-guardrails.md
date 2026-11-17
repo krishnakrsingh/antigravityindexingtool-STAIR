@@ -1,4 +1,4 @@
-# Execution Guardrails & Fable-Mode Agent Discipline
+# Native Direct Action & Zero-Exploration Execution Guardrails
 
 ## 1. Intent Classification: Operational Task vs. Code Authoring
 - When a prompt requests an operational action, cleanup, environment setup, installation, or sanity test (e.g., "clean our PC, install the repo using the command, test if it works"):

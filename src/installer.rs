@@ -106,14 +106,6 @@ pub fn run_setup() -> Result<(), Box<dyn std::error::Error>> {
     fs::write(&skill_path, skill_content)?;
     println!("  ✅ Synced Antigravity Skill: {:?}", skill_path);
 
-    // Write Fable-Mode SKILL.md into ~/.gemini/config/plugins/fast-code-intelligence/skills/fable-mode/
-    let fable_skill_dir = plugin_dir.join("skills").join("fable-mode");
-    fs::create_dir_all(&fable_skill_dir)?;
-    let fable_skill_path = fable_skill_dir.join("SKILL.md");
-    let fable_skill_content = include_str!("../skills/fable-mode/SKILL.md");
-    fs::write(&fable_skill_path, fable_skill_content)?;
-    println!("  ✅ Synced Fable-Mode Skill: {:?}", fable_skill_path);
-
     // Write execution-guardrails.md into plugin rules & global config rules
     let guardrails_content = include_str!("../rules/execution-guardrails.md");
     let plugin_rules_dir = plugin_dir.join("rules");
