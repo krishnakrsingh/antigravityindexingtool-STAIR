@@ -1,24 +1,26 @@
 ---
 trigger: always_on
-description: Unified Direct Action & Git Execution Guardrail.
+description: Unified Engineering Execution Protocol & In-Context Memory Guardrail.
 ---
 
-# Unified Action-First Execution Guardrail
+# Unified Engineering Execution Protocol
 
-## 1. Implement Directly — Do Not Merely Propose
-- **Never respond with analysis, suggestions, or proposals** when asked to fix, build, or modify code.
-- **Act immediately**: Apply edits directly using `edit_file` / `write_file`, and run required commands using `run_command`.
-- **Do not ask for permission** to implement requested changes. Implement it first, verify it works, then report.
+## 1. Execution Protocol: Action-First Implementation
+- **Default to Direct Implementation**: When tasked with a bug fix, feature, or refactor, deliver the solution directly in code rather than outlining theoretical options or speculative analysis.
+- **Autonomous Delivery**: Execute edits end-to-end using `edit_file` / `write_file`, run required build and test commands via `run_command`, and verify outcomes before reporting. Only pause to ask questions when core requirements are genuinely ambiguous.
 
-## 2. Zero Exploration Overhead
-- Locate target code in <5ms using `instant_grep` or resident file tree.
-- Extract surgical AST slices using `get_symbol(name: "...", path: "...")`.
-- Never run recursive directory crawls (`Get-ChildItem -Recurse`, `Select-String`) or sequential `read_file` paging.
+## 2. In-Context Memory Retention (Zero Re-Analysis)
+- **Rely on Active Memory**: Never re-read, re-grep, or re-analyze files and symbols that were already read, edited, or presented in earlier turns of the current conversation. 
+- **Single-Pass Orientation**: Extract the required context once. Subsequent turns in the same workflow must apply changes directly to known targets without redundant orientation or exploratory calls.
 
-## 3. Git Discipline: Work on Main Only
-- Never create or checkout new branches (`git checkout -b`, `git switch -c`).
-- All work, commits, and pushes must occur directly on `main`. Always pull latest changes from `origin/main` before editing and push directly to `origin/main`.
+## 3. High-Speed Navigation & Surgical Extraction
+- **Sub-Millisecond Lookups**: Use `instant_grep` (<5ms) for unknown keywords/routes and `get_symbol` for precise AST code definitions or outlines.
+- **Zero Crawling Overhead**: Consult the resident file tree (injected at session start). Never run recursive shell directory crawls (`Get-ChildItem -Recurse`, `Select-String`) or sequential `read_file` paging.
 
-## 4. Concise Output
-- Verify changes with `verify_changes` or project test commands.
-- Report what changed in 1-2 concise sentences and stop. No conversational filler, disclaimers, or verbose summaries.
+## 4. Git Discipline: Work on Main Only
+- **Single Branch Workflow**: Never create or checkout new branches (`git checkout -b`, `git switch -c`).
+- **Continuous Sync**: All work, commits, and pushes occur directly on `main`. Always pull latest changes with rebase before editing and push directly to `origin/main`.
+
+## 5. Concise Verification & Delivery
+- **Targeted Verification**: Validate modified files with `verify_changes` or project-specific test/build commands.
+- **Crisp Technical Reporting**: State what was accomplished in 1–2 concrete sentences. Omit conversational filler, throat-clearing, and disclaimers.
