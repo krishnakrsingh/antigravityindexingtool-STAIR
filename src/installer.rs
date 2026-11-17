@@ -98,6 +98,22 @@ pub fn run_setup() -> Result<(), Box<dyn std::error::Error>> {
     )?;
     println!("  ✅ Plugin manifest written to: {:?}", plugin_json_path);
 
+    // Also sync global ~/.gemini/config/mcp_config.json for Antigravity IDE
+    let mcp_config_path = gemini_dir.join("config").join("mcp_config.json");
+    let mut mcp_obj = if mcp_config_path.exists() {
+        fs::read_to_string(&mcp_config_path)
+            .ok()
+            .and_then(|s| serde_json::from_str::<serde_json::Value>(&s).ok())
+            .unwrap_or_else(|| json!({"mcpServers": {}}))
+    } else {
+        json!({"mcpServers": {}})
+    };
+    if let Some(servers) = mcp_obj.get_mut("mcpServers").and_then(|v| v.as_object_mut()) {
+        servers.insert("fast-core".to_string(), fast_core_server.clone());
+        let _ = fs::write(&mcp_config_path, serde_json::to_string_pretty(&mcp_obj)?);
+        println!("  ✅ Synced global Antigravity config: {:?}", mcp_config_path);
+    }
+
     // Write SKILL.md into ~/.gemini/config/plugins/fast-code-intelligence/skills/fast-code-intelligence/
     let skill_dir = plugin_dir.join("skills").join("fast-code-intelligence");
     fs::create_dir_all(&skill_dir)?;
