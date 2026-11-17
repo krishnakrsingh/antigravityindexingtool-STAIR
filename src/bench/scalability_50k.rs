@@ -1,5 +1,4 @@
 use crate::crepe::{CrepeIndex, Verifier};
-use crate::embeddings::LocalSemanticIndex;
 use crate::merkle::MerkleTree;
 use crate::stair::SymbolTrie;
 use rayon::prelude::*;
@@ -556,26 +555,8 @@ func (d *{}) RoutePacket(packet []byte) (int, error) {{
             stair_build_ms, sym_count
         );
 
-        // Step 5: Local In-Process Semantic Index
-        println!("[4/5] Vectorizing AST symbols into Local In-Process Semantic Index...");
-        let t0 = Instant::now();
-        let semantic = LocalSemanticIndex::new();
-        let mut items = Vec::new();
-        for (file, symbols) in stair.get_outline(None) {
-            for sym in symbols {
-                let sym_path = format!("{}::{}", file, sym.name);
-                items.push((sym_path, sym.signature, file.clone()));
-            }
-        }
-        semantic.index_symbols_batch(items);
-        let semantic_index_ms = t0.elapsed().as_secs_f64() * 1000.0;
-        println!(
-            "      -> Semantic Index Vectorization: {:.2} ms ({} symbols)\n",
-            semantic_index_ms, semantic.total_indexed()
-        );
-
-        // Step 6: Head-to-Head Latency Benchmark
-        println!("[5/5] Running Head-to-Head Latency Comparison across 50,000 files...\n");
+        // Step 5: Head-to-Head Latency Benchmark
+        println!("[4/4] Running Head-to-Head Latency Comparison across 50,000 files...\n");
         let verifier = Verifier::new(self.benchmark_dir.clone());
 
         let test_cases = [
@@ -679,7 +660,7 @@ func (d *{}) RoutePacket(packet []byte) (int, error) {{
             let query = "reconcile sovereign balance asset settlement";
             print!("   Testing '{}' ({})... ", query, label);
             let sem_t0 = Instant::now();
-            let matches = semantic.search(query, 5);
+            let matches = stair.find_symbols_by_fuzzy_query(query, None, 5);
             let fast_core_ms = sem_t0.elapsed().as_secs_f64() * 1000.0;
 
             let rg_t0 = Instant::now();
@@ -783,6 +764,7 @@ func (d *{}) RoutePacket(packet []byte) (int, error) {{
             tokens_saved_pct: tokens_saved,
         };
 
+        let semantic_index_ms = 0.0;
         let summary_md = Self::generate_report_markdown(
             total_files,
             total_lines,

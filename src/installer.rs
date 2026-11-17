@@ -90,7 +90,7 @@ pub fn run_setup() -> Result<(), Box<dyn std::error::Error>> {
     let plugin_config = json!({
         "name": "fast-code-intelligence",
         "version": "1.0.0",
-        "description": "High-speed native code intelligence layer powered by Rust: BLAKE3 Merkle tree, Cursor-style sparse n-gram inverted index (crepe), Code STAIR AST symbol extraction, and GPU-accelerated code embeddings.",
+        "description": "High-speed native code intelligence layer powered by Rust: BLAKE3 Merkle tree, Cursor-style sparse n-gram inverted index (crepe), and Code STAIR AST symbol extraction.",
         "author": "Antigravity Engineering",
         "mcpServers": {
             "fast-core": fast_core_server

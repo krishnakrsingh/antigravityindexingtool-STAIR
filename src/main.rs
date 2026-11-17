@@ -1,6 +1,5 @@
 mod bench;
 mod crepe;
-mod embeddings;
 mod installer;
 mod mcp;
 mod merkle;
@@ -10,7 +9,6 @@ mod tree;
 use bench::{BenchmarkRunner, Scalability50kRunner};
 use clap::Parser;
 use crepe::{CrepeIndex, Verifier};
-use embeddings::LocalSemanticIndex;
 use merkle::MerkleTree;
 use stair::SymbolTrie;
 use tree::CodebaseTree;
@@ -91,14 +89,6 @@ struct Cli {
     /// Run microsecond dirty-file Merkle diff and fast state check
     #[arg(long)]
     verify: bool,
-
-    /// Pure Rust semantic search across symbols using subword BM25/TF-IDF
-    #[arg(short, long)]
-    semantic: Option<String>,
-
-    /// Autonomous pure Rust adaptive cascade (Grep -> Semantic -> STAIR Slice)
-    #[arg(short, long)]
-    cascade: Option<String>,
 
     /// Generate a compact, clean structural file tree of the workspace
     #[arg(long)]
@@ -320,72 +310,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("  - {}", f);
         }
         println!("Diff computed in {} µs", diff.duration_micros);
-        return Ok(());
-    }
-
-    if let Some(query) = cli.semantic {
-        let trie = SymbolTrie::new(workspace.clone());
-        let _ = trie.build();
-        let index = LocalSemanticIndex::new();
-        let mut items = Vec::new();
-        for (file, symbols) in trie.get_outline(None) {
-            for sym in symbols {
-                let sym_path = format!("{}::{}", file, sym.name);
-                items.push((sym_path, sym.signature, file.clone()));
-            }
-        }
-        index.index_symbols_batch(items);
-        let t0 = std::time::Instant::now();
-        let results = index.search(&query, 10);
-        let elapsed = t0.elapsed();
-        println!("Pure Rust Semantic Search for '{}' (Found {} symbols in {:.2} ms):", query, results.len(), elapsed.as_secs_f64() * 1000.0);
-        for r in results {
-            println!("  [{:.3}] {} -> {}", r.score, r.symbol_path, r.signature);
-        }
-        return Ok(());
-    }
-
-    if let Some(query) = cli.cascade {
-        let t0 = std::time::Instant::now();
-        let crepe = CrepeIndex::new(workspace.clone());
-        if crepe.total_files() == 0 {
-            let _ = crepe.build();
-        }
-        let verifier = Verifier::new(workspace.clone());
-        let candidates = crepe.find_candidates(&query);
-        let matches = verifier.verify_in_process(&query, &candidates, false).unwrap_or_default();
-        let trie = SymbolTrie::new(workspace.clone());
-
-        if !matches.is_empty() {
-            let elapsed = t0.elapsed();
-            println!("[Tier 1: Instant Crepe Fast-Path] Found {} matches in {:.2} ms:", matches.len(), elapsed.as_secs_f64() * 1000.0);
-            for m in matches.iter().take(5) {
-                println!("{}:{}: {}", m.file, m.line_number, m.line_content.trim());
-            }
-            return Ok(());
-        }
-
-        let _ = trie.build();
-        let index = LocalSemanticIndex::new();
-        let mut items = Vec::new();
-        for (file, symbols) in trie.get_outline(None) {
-            for sym in symbols {
-                let sym_path = format!("{}::{}", file, sym.name);
-                items.push((sym_path, sym.signature, file.clone()));
-            }
-        }
-        index.index_symbols_batch(items);
-        let results = index.search(&query, 5);
-        let elapsed = t0.elapsed();
-        println!("[Tier 3: Pure Rust Semantic Fallback] (Grep 0 hits, resolved in {:.2} ms):", elapsed.as_secs_f64() * 1000.0);
-        for r in results {
-            println!("  [{:.3}] {} -> {}", r.score, r.symbol_path, r.signature);
-            if let Some((_, code)) = trie.extract_symbol_code(&r.symbol_path) {
-                println!("// [Tier 2: STAIR AST Slice for {}]:", r.symbol_path);
-                println!("{}", code.lines().take(20).collect::<Vec<_>>().join("\n"));
-                break;
-            }
-        }
         return Ok(());
     }
 
