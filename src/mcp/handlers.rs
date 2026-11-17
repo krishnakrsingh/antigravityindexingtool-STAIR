@@ -218,6 +218,12 @@ impl McpHandler {
                     }],
                     is_error: false,
                 };
+            } else if is_indexing {
+                // If ripgrep is unavailable on a stock machine, wait briefly for background crepe indexing to finish
+                let wait_start = Instant::now();
+                while ws.is_indexing.load(std::sync::atomic::Ordering::SeqCst) && wait_start.elapsed().as_millis() < 1200 {
+                    std::thread::sleep(std::time::Duration::from_millis(15));
+                }
             }
         }
 

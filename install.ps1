@@ -15,6 +15,11 @@ if (-not (Test-Path $cargoPath)) {
         Write-Error "Cargo/Rust toolchain not found. Please install Rust from https://rustup.rs"
         exit 1
     }
+} else {
+    $cargoBinDir = "$env:USERPROFILE\.cargo\bin"
+    if ($env:Path -notlike "*$cargoBinDir*") {
+        $env:Path = "$cargoBinDir;$env:Path"
+    }
 }
 
 Write-Host "`n[1/3] Compiling high-speed release binary..." -ForegroundColor Yellow
@@ -35,16 +40,23 @@ if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
 }
 
-# 3. Add to user PATH if not present
-Write-Host "`n[3/3] Checking user environment PATH..." -ForegroundColor Yellow
+# 3. Add to user PATH and current session
+Write-Host "`n[3/3] Checking environment PATH..." -ForegroundColor Yellow
 $binDir = "$env:USERPROFILE\.antigravity\bin"
 $userPath = [Environment]::GetEnvironmentVariable("Path", [EnvironmentVariableTarget]::User)
-if ($userPath -notlike "*$binDir*") {
+if ([string]::IsNullOrWhiteSpace($userPath)) {
+    [Environment]::SetEnvironmentVariable("Path", $binDir, [EnvironmentVariableTarget]::User)
+    Write-Host "✅ Set $binDir in User PATH environment variable." -ForegroundColor Green
+} elseif ($userPath -notlike "*$binDir*") {
     $newPath = "$userPath;$binDir"
     [Environment]::SetEnvironmentVariable("Path", $newPath, [EnvironmentVariableTarget]::User)
     Write-Host "✅ Added $binDir to User PATH environment variable." -ForegroundColor Green
 } else {
-    Write-Host "✅ $binDir is already present in PATH." -ForegroundColor Green
+    Write-Host "✅ $binDir is already present in User PATH." -ForegroundColor Green
+}
+
+if ($env:Path -notlike "*$binDir*") {
+    $env:Path = "$binDir;$env:Path"
 }
 
 Write-Host "`n============================================================" -ForegroundColor Cyan

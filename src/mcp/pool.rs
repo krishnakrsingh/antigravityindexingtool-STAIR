@@ -19,6 +19,40 @@ pub fn normalize_path(path: &Path) -> PathBuf {
     }
 }
 
+pub fn uri_to_path(input: &str) -> PathBuf {
+    let mut s = input.trim();
+    if let Some(stripped) = s.strip_prefix("file:///") {
+        s = stripped;
+    } else if let Some(stripped) = s.strip_prefix("file://") {
+        s = stripped;
+    }
+
+    // URL decode %XX
+    let mut decoded = String::new();
+    let bytes = s.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'%' && i + 2 < bytes.len() {
+            if let Ok(hex) = u8::from_str_radix(&s[i + 1..i + 3], 16) {
+                decoded.push(hex as char);
+                i += 3;
+                continue;
+            }
+        }
+        decoded.push(bytes[i] as char);
+        i += 1;
+    }
+
+    #[cfg(unix)]
+    {
+        if !decoded.starts_with('/') {
+            decoded = format!("/{}", decoded);
+        }
+    }
+
+    normalize_path(Path::new(&decoded))
+}
+
 pub struct WorkspaceState {
     pub root: PathBuf,
     #[allow(dead_code)]
@@ -148,13 +182,21 @@ impl WorkspacePool {
         if let Some(ws_str) = workspace_hint {
             let trimmed = ws_str.trim();
             if !trimmed.is_empty() {
-                let p = PathBuf::from(trimmed);
+                let p = if trimmed.starts_with("file://") {
+                    uri_to_path(trimmed)
+                } else {
+                    normalize_path(Path::new(trimmed))
+                };
                 return self.get_or_create(&p);
             }
         }
 
         if let Some(path_str) = path_hint {
-            let p = normalize_path(Path::new(path_str));
+            let p = if path_str.starts_with("file://") {
+                uri_to_path(path_str)
+            } else {
+                normalize_path(Path::new(path_str))
+            };
             if p.is_absolute() {
                 // Check if already matches an active workspace prefix
                 {
@@ -191,5 +233,23 @@ impl WorkspacePool {
                 )
             })
             .collect()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_uri_to_path_windows_and_unix() {
+        let uri1 = "file:///C:/Users/krish/project%20alpha";
+        let p1 = uri_to_path(uri1);
+        let s1 = p1.to_string_lossy().replace('\\', "/");
+        assert!(s1.contains("Users/krish/project alpha"));
+
+        let uri2 = "file:///c%3A/Users/krish/test";
+        let p2 = uri_to_path(uri2);
+        let s2 = p2.to_string_lossy().replace('\\', "/");
+        assert!(s2.contains("Users/krish/test"));
     }
 }

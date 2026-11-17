@@ -101,7 +101,7 @@ struct Cli {
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
-    let workspace = fs::canonicalize(&cli.workspace).unwrap_or(cli.workspace);
+    let workspace = mcp::pool::normalize_path(&cli.workspace);
 
     if cli.setup {
         installer::run_setup()?;
