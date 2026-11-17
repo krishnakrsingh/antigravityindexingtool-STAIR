@@ -122,18 +122,23 @@ pub fn run_setup() -> Result<(), Box<dyn std::error::Error>> {
     fs::write(&skill_path, skill_content)?;
     println!("  ✅ Synced Antigravity Skill: {:?}", skill_path);
 
-    // Write execution-guardrails.md into plugin rules & global config rules
+    // Write execution-guardrails.md and no-file-paging.md into plugin rules & global config rules
     let guardrails_content = include_str!("../rules/execution-guardrails.md");
+    let no_paging_content = include_str!("../rules/no-file-paging.md");
     let plugin_rules_dir = plugin_dir.join("rules");
     fs::create_dir_all(&plugin_rules_dir)?;
     let plugin_guardrail_path = plugin_rules_dir.join("execution-guardrails.md");
     fs::write(&plugin_guardrail_path, guardrails_content)?;
+    let plugin_paging_path = plugin_rules_dir.join("no-file-paging.md");
+    fs::write(&plugin_paging_path, no_paging_content)?;
     println!("  ✅ Synced Plugin Execution Guardrail: {:?}", plugin_guardrail_path);
 
     let global_rules_dir = gemini_dir.join("config").join("rules");
     fs::create_dir_all(&global_rules_dir)?;
     let global_guardrail_path = global_rules_dir.join("execution-guardrails.md");
     fs::write(&global_guardrail_path, guardrails_content)?;
+    let global_paging_path = global_rules_dir.join("no-file-paging.md");
+    fs::write(&global_paging_path, no_paging_content)?;
     println!("  ✅ Synced Global Agent Execution Guardrail: {:?}", global_guardrail_path);
 
     // Write all tool schemas into ~/.gemini/antigravity/mcp/fast-core/
