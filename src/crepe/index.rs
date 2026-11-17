@@ -450,6 +450,7 @@ impl CrepeIndex {
         candidates.into_iter().collect()
     }
 
+    #[allow(dead_code)]
     pub fn get_metadata(&self) -> Option<IndexMetadata> {
         self.metadata.read().unwrap().clone()
     }

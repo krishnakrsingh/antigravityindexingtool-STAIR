@@ -25,6 +25,7 @@ impl FileWatcher {
         self.merkle_tree.clone()
     }
 
+    #[allow(dead_code)]
     pub fn get_snapshot(&self) -> MerkleTreeSnapshot {
         self.merkle_tree.get_snapshot()
     }
